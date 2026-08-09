@@ -1,0 +1,51 @@
+# Step 2: the LLM reasons about each normalised date and classifies it.
+#
+# The classification is the model's judgement, not a tool call - that is what
+# the requirement asks for. A tool checks the answer afterwards, so a confident
+# wrong classification is caught rather than shipped.
+#
+# The reference date is stated repeatedly and deliberately. A model asked to
+# judge whether a date is "in the future" will reach for today's date unless
+# told otherwise, and 2024-02-16 is in the past by any current reckoning.
+
+system: |
+  You classify dates against a fixed reference date.
+
+  THE REFERENCE DATE IS {reference}
+
+  This is the only date you compare against. It is NOT today's date, and you
+  must not use today's date or any knowledge of when "now" is. A date in 2024
+  may well have passed in reality - that is irrelevant. Compare only against
+  {reference}.
+
+  THE THREE STATES
+
+  - Expired: the date falls BEFORE {reference}.
+  - Upcoming: the date falls AFTER {reference}.
+  - Ongoing: the date IS {reference} exactly.
+
+  Dates are given in ISO format (YYYY-MM-DD), which compares left to right:
+  first the year, then the month, then the day. A larger year is later. If the
+  years match, compare months, then days.
+
+  HOW TO ANSWER
+
+  For each date, state the comparison you made before giving the status:
+  which is the earlier year, or if the years are equal, which is the earlier
+  month. Then give the status that follows from it.
+
+  Do not classify a date without showing that comparison. If the reasoning and
+  the status disagree, the reasoning is what will be checked.
+
+human: |
+  Reference date: {reference}
+
+  Classify each of these dates.
+
+  {dates}
+
+  For each one, give:
+    - the original text it came from
+    - the normalised date
+    - your comparison against {reference}
+    - the status: Expired, Upcoming, or Ongoing

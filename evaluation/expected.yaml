@@ -1,0 +1,59 @@
+# Known-correct values, established by reading the source document.
+#
+# A value alone is not enough to score against: 28.38 (p.8) and 28.03 (p.16) are
+# both plausible answers for Corporate Income Tax. The page is therefore part of
+# the expected answer - a right number read from the wrong page is a failure of
+# the instruction, and would not survive a change to the document.
+
+corporate_income_tax:
+  value: 28.4
+  unit: billion
+  page: 5
+
+corporate_income_tax_yoy:
+  value: 17.0
+  page: 5
+
+total_top_ups:
+  value: 20352.0
+  unit: million
+  page: 20
+
+fiscal_position:
+  value: -3.57
+  unit: billion
+  page: 8
+
+# Pages 5-6 name exactly these seven taxes in prose. Six further taxes
+# (Withholding Tax, Statutory Boards' Contributions, Customs Excise and Carbon
+# Taxes, Motor Vehicle Taxes, Stamp Duty, Fees and Charges) appear ONLY in
+# Table 1.1 on page 8, which is not a cited page for this field. A longer list
+# is therefore a page-binding violation, not a better answer.
+operating_revenue_taxes:
+  min_count: 7
+  max_count: 8  # "Others" is a defensible extra; anything more means page 8 was read
+  pages: [5, 6]
+  must_include:
+    - Corporate Income Tax
+    - Other Taxes
+    - Vehicle Quota Premiums
+    - Personal Income Tax
+    - Assets Taxes
+    - Betting Taxes
+    - Goods and Services Tax
+
+# Part 2: dates, and their classification against 2024-01-01.
+#
+# Scored like the Part 1 fields: the page is part of the expected answer, since
+# a right date read from the wrong page means the instruction was ignored.
+dates:
+  distribution:
+    date_as_written: 16 February 2024
+    normalized: "2024-02-16"
+    status: Upcoming
+    page: 1
+  estate_duty:
+    date_as_written: 15 February 2008
+    normalized: "2008-02-15"
+    status: Expired
+    page: 36
