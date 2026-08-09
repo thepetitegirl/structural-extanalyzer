@@ -7,7 +7,7 @@ Non-secret settings live in `config.yml` and are committed. Credentials live in
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -37,6 +37,21 @@ class Config:
     pages: list[int]
     provider: str
     model: str
+    temperature: float = 0.0
+    # Field name -> the page(s) that field must be read from. Injected into the
+    # prompt so a page is defined here and nowhere else.
+    field_pages: dict[str, int | list[int]] = field(default_factory=dict)
+    # Part 2: pages holding the dates to normalise and classify.
+    date_pages: list[int] = field(default_factory=list)
+
+    def page_for(self, field_name: str) -> str:
+        """Render a field's bound page(s) for use in a prompt."""
+        pages = self.field_pages.get(field_name)
+        if pages is None:
+            raise ConfigError(f"No page configured for field {field_name!r}.")
+        if isinstance(pages, int):
+            return str(pages)
+        return " AND ".join(str(page) for page in pages)
 
     def api_key(self) -> str | None:
         """Return the provider's API key, or None if it needs no credential.
@@ -70,9 +85,26 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
     if missing:
         raise ConfigError(f"Config {path} is missing required key(s): {', '.join(missing)}")
 
+    pages = list(data["pages"])
+    field_pages = data.get("field_pages") or {}
+
+    # A field bound to a page that is never extracted would silently produce a
+    # wrong answer, so catch the mismatch here rather than at inference time.
+    for name, cited in field_pages.items():
+        cited_pages = [cited] if isinstance(cited, int) else list(cited)
+        missing = [page for page in cited_pages if page not in pages]
+        if missing:
+            raise ConfigError(
+                f"Field {name!r} cites page(s) {missing}, which are not in "
+                f"pages {pages}. Add them to `pages` or correct `field_pages`."
+            )
+
     return Config(
         pdf_path=data["pdf_path"],
-        pages=list(data["pages"]),
+        pages=pages,
         provider=data["provider"],
         model=data["model"],
+        temperature=float(data.get("temperature", 0.0)),
+        field_pages=field_pages,
+        date_pages=list(data.get("date_pages", [])),
     )

@@ -8,6 +8,27 @@ pdf_path: data/fy2024_analysis_of_revenue_and_expenditure.pdf
 # so narrowing the input removes the ambiguity.
 pages: [5, 6, 8, 20]
 
-# provider: google | groq | ollama
-provider: google
-model: gemini-2.0-flash
+# The page each field must be read from. These are injected into the prompt, so
+# the page a field is bound to is defined here and nowhere else. A field whose
+# value appears on another page is wrong even if it looks plausible - that
+# distinction is what the prompt enforces.
+field_pages:
+  corporate_income_tax: 5
+  corporate_income_tax_yoy: 5
+  total_top_ups: 20
+  operating_revenue_taxes: [5, 6]
+  fiscal_position: 8
+
+# Part 2: pages holding the dates to normalise.
+# Page 1 is the title page (distribution date); page 36 is the glossary entry
+# for Assets Taxes, which names the Estate Duty cut-off.
+date_pages: [1, 36]
+
+# Groq only - see notebooks/02_extraction.ipynb for why other providers were rejected.
+provider: groq
+model: llama-3.1-8b-instant
+
+# 0 makes extraction deterministic: the model takes the most likely token each
+# time, so the same pages yield the same figures. Raise it only to diagnose a
+# model that refuses or returns malformed output at 0.
+temperature: 0
