@@ -1,0 +1,13 @@
+# Non-secret settings. Credentials belong in .env (see .env.example).
+
+pdf_path: data/fy2024_analysis_of_revenue_and_expenditure.pdf
+
+# Pages holding the target fields, 1-indexed as cited in the requirements.
+# Restricted deliberately: the same term carries different values elsewhere in
+# the document (Corporate Income Tax appears on pp. 5, 8, 9, 16, 26, 27, 37),
+# so narrowing the input removes the ambiguity.
+pages: [5, 6, 8, 20]
+
+# provider: google | groq | ollama
+provider: google
+model: gemini-2.0-flash
