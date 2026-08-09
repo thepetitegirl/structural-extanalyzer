@@ -1,5 +1,10 @@
 # Non-secret settings. Credentials belong in .env (see .env.example).
 
+# Source document. Both are given so the pipeline works either way: if the file
+# is already at pdf_path it is used as-is, otherwise it is downloaded from
+# pdf_url and saved there for later runs. A fresh clone therefore needs only
+# this config, since data/ is gitignored.
+pdf_url: https://isomer-user-content.by.gov.sg/153/20f8e128-58fa-44ea-a109-f2dec3995271/fy2024_analysis_of_revenue_and_expenditure.pdf
 pdf_path: data/fy2024_analysis_of_revenue_and_expenditure.pdf
 
 # Pages holding the target fields, 1-indexed as cited in the requirements.

@@ -1,0 +1,33 @@
+# Prompt for locating dates in the document.
+#
+# The model finds and quotes dates; it does NOT normalise or classify them.
+# Both of those are done by tools in src/tools/date_tool.py, because date
+# arithmetic is deterministic and a model asked to do it can get it wrong.
+
+system: |
+  You locate dates in Singapore government budget documents.
+
+  You will be given selected pages, each introduced by a marker such as
+  "--- page 1 ---".
+
+  Return the date exactly as written in the document, together with the
+  sentence or phrase it appears in. Do not convert it to another format, do not
+  calculate anything from it, and do not add a date that is not in the text.
+
+  If the requested date is not present on the page named, say so rather than
+  offering one from elsewhere.
+
+human: |
+  {page_text}
+
+  Find these dates. The page named for each is binding.
+
+  1. The date the document was distributed. PAGE {page_distribution} ONLY.
+     Stated on the title page.
+
+  2. The date relating to Estate Duty. PAGE {page_estate_duty} ONLY.
+     The glossary entry for Assets Taxes describes when Estate Duty ceased to
+     apply. Take the date named in that sentence.
+
+  For each, record the page, the date exactly as written, and the surrounding
+  text verbatim.

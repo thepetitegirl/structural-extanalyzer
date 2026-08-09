@@ -38,6 +38,8 @@ class Config:
     provider: str
     model: str
     temperature: float = 0.0
+    # Source URL; the file is downloaded to pdf_path on first use.
+    pdf_url: str | None = None
     # Field name -> the page(s) that field must be read from. Injected into the
     # prompt so a page is defined here and nowhere else.
     field_pages: dict[str, int | list[int]] = field(default_factory=dict)
@@ -101,6 +103,7 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
 
     return Config(
         pdf_path=data["pdf_path"],
+        pdf_url=data.get("pdf_url"),
         pages=pages,
         provider=data["provider"],
         model=data["model"],
