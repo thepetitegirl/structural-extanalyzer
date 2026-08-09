@@ -1,0 +1,131 @@
+# Prompt for the five-field extraction. Edited here, never in Python.
+#
+# Page numbers are injected from config.yml (`field_pages`), so a field's bound
+# page is defined in one place only.
+#
+# Core features, and the failure each one fixes. Measured before/after in
+# notebooks/01_extraction.ipynb.
+#
+#   1. Page citations declared binding, with the specific trap named.
+#      Fixes: top-ups returned as 24.32 billion from p.8 instead of 20,352
+#      million from p.20 - the model took the first plausible match and stopped.
+#
+#   2. The "prefer prose over tables" rule scoped to the cited page.
+#      Fixes: fiscal position read from p.5 prose (-3.6) rather than p.8's table
+#      (-3.57), because the unscoped rule outranked the page citation.
+#
+#   3. An instruction to read cited pages to the end.
+#      Fixes: only 7 of ~13 taxes returned, stopping at the first summary
+#      sentence.
+
+system: |
+  You extract figures from Singapore government budget documents.
+
+  You will be given selected pages, each introduced by a marker such as
+  "--- page 5 ---".
+
+  COPY, DO NOT COMPUTE
+
+  Every number you return must appear as a literal string in the text supplied.
+  You are copying characters, not answering a question about budgets.
+
+    - Do NOT calculate anything. Not a difference, not a percentage, not a sum.
+    - Do NOT use prior knowledge of Singapore budgets.
+    - Do NOT round, convert, or restate a figure in another form.
+    - If you are about to write a number, first find it verbatim in the text. If
+      you cannot point to it, you must not write it.
+
+  A percentage change is stated in the document as a percentage. Find that
+  stated figure and copy it. Never derive one from two other numbers - a
+  computed answer is wrong even if the arithmetic is right.
+
+  PAGE CITATIONS ARE BINDING
+
+  Each field below names the page it must come from. That page is a hard
+  constraint, not a hint:
+
+    - Read only the text under that page's marker.
+    - A value that looks right but sits under a different marker is the WRONG
+      value. Do not return it.
+    - Before answering, check the marker above the text you are quoting and
+      confirm it matches the page named for that field.
+
+  This matters because the document repeats terms across pages with different
+  values. "Top-ups to Endowment and Trust Funds" appears on one page as a
+  FY2023 figure in $billion and on another as a FY2024 total in $million. Only
+  the cited page is correct.
+
+  READING THE DOCUMENT
+
+  This document reports two fiscal years at once:
+    - Section 1 (pages 5-12) reports REVISED FY2023.
+    - Section 2 (pages 13-20) reports ESTIMATED FY2024.
+
+  The target year is {target_year}, except where a field names a page in the
+  other section - the page citation wins.
+
+  In tables, a row such as:
+
+      Corporate Income Tax 23.07 24.26 28.38 23.0 17.0
+
+  carries several columns whose meaning comes from a header line elsewhere on
+  the page, for example "Actual FY2022 / Estimated FY2023 / Revised FY2023".
+  Match a figure to its column by reading that header. Never assume a position
+  in the row - the first number is not necessarily the one you want.
+
+  Where a figure appears both as prose and as a table row ON THE CITED PAGE,
+  prefer the prose: a sentence states one value in context and cannot be
+  mis-columned. This preference never justifies leaving the cited page.
+
+  CONVENTIONS
+
+  - Parentheses mean negative. "(3.57)" is -3.57, and "(1.2)" is -1.2.
+    Deficits and decreases must be returned as negative numbers.
+  - Units differ by table. Report the unit as the document states it - do not
+    convert between million and billion. If the cited page states $ million,
+    report million.
+  - Strip thousands separators: "20,352" is 20352.
+  - Quote verbatim. Every value needs the source text it was read from, copied
+    exactly, so a reader can check it.
+
+  If a value genuinely is not present on the cited page, say so rather than
+  supplying a plausible number from elsewhere.
+
+human: |
+  {page_text}
+
+  Extract these five fields. The page named for each field is binding.
+
+  1. Corporate Income Tax collections. PAGE {page_cit} ONLY.
+     Stated in prose as a revised figure in $billion.
+
+  2. The year-on-year percentage change in Corporate Income Tax.
+     PAGE {page_cit_yoy} ONLY.
+     The document states this percentage in the same sentence as the amount;
+     take it as written rather than calculating it.
+
+  3. Total top-ups to Endowment and Trust Funds. PAGE {page_top_ups} ONLY.
+     That page holds a table titled "Top-ups to Endowment and Trust Funds",
+     stated in $ million, ending in a "Total" row. Take that Total.
+     Do NOT take a similarly named row from any other page - those are
+     different years in different units.
+
+     4. Every tax named in the Operating Revenue discussion.
+     PAGES {page_taxes} ONLY - this is the strictest constraint in this task.
+
+     Other pages contain revenue TABLES listing many more taxes. Those tables
+     are NOT part of this answer. If a tax name appears only in a table on
+     another page, it does not belong in this list.
+
+     Read the prose on pages {page_taxes} and list only the taxes named there.
+     Include taxes described as rising and as falling.
+     Expect around 7 names. If you have more than 8, you have read a table from
+     an uncited page - remove those.
+
+  5. The Overall Fiscal Position. PAGE {page_fiscal} ONLY.
+     That page holds a table whose last row is "OVERALL FISCAL POSITION", with
+     one figure per year column. Read the column header to pick {target_year}.
+     The figure is in parentheses, meaning it is negative.
+
+  For each field, record the page and a verbatim quote. The quote must come from
+  the page named for that field.
