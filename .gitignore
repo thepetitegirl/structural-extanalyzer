@@ -41,5 +41,6 @@ data/
 # macOS
 .DS_Store
 
-# Jupyter
+# Jupyter and claude
 .ipynb_checkpoints/
+CLAUDE.md
