@@ -77,7 +77,6 @@ queries:
       case - the model knows the answer from training, and answering would be
       ungrounded by definition.
     routed_to: []
-    must_decline: true
     enabled: true
 
   - id: out_of_scope_nonsense
@@ -85,5 +84,4 @@ queries:
     demonstrates: Declining unparseable input rather than routing it somewhere
       and producing an answer from an empty finding set.
     routed_to: []
-    must_decline: true
     enabled: true

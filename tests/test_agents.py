@@ -83,6 +83,20 @@ def test_revenue_agent_falls_back_to_the_query_without_a_sub_task(config, fake_p
     assert "What are the revenue streams?" in model.prompts[0]
 
 
+def test_revenue_agent_falls_back_when_the_sub_task_is_empty(config, fake_pages):
+    """An empty brief - the synthesis-guard fallback path - uses the query too."""
+    model = _model(_report())
+
+    revenue_node(
+        {"query": "What are the revenue streams?", "sub_task": ""},
+        model,
+        config,
+        "any.pdf",
+    )
+
+    assert "What are the revenue streams?" in model.prompts[0]
+
+
 # --- expenditure agent -----------------------------------------------------
 
 

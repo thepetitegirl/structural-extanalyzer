@@ -5,6 +5,7 @@ classification is caught rather than accepted - which is the point of the
 module.
 """
 
+import pytest
 from langchain_core.runnables import Runnable
 
 from src.extraction.date_reasoning import (
@@ -128,3 +129,27 @@ def test_reference_date_reaches_the_prompt():
     )
 
     assert "2024-01-01" in str(model.received)
+
+
+def test_unparseable_date_is_excluded_from_the_prompt():
+    """A date with no ISO form is skipped, not shown as the string None."""
+    model = StubModel(_classified(DateStatus.UPCOMING))
+
+    classify(
+        [
+            {"original_text": "16 Feb. 2024", "normalized_date": None},
+            {"original_text": "Budget Day", "normalized_date": "2024-02-16"},
+        ],
+        model=model,
+    )
+
+    assert "None" not in str(model.received)
+
+
+def test_all_dates_unparseable_raises():
+    """With nothing to classify, the failure is loud rather than a model call."""
+    with pytest.raises(ValueError, match="parseable"):
+        classify(
+            [{"original_text": "sometime", "normalized_date": None}],
+            model=StubModel(None),
+        )

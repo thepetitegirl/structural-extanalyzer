@@ -99,11 +99,14 @@ class Decision(BaseModel):
 
 
 class NodeCost(BaseModel):
-    """What one node call cost, for observability against the daily quota."""
+    """How long one node call took.
+
+    Only elapsed time is recorded: structured output hides the raw response,
+    so per-call token usage is not visible without extra plumbing that the
+    trace does not need.
+    """
 
     node: str
-    input_tokens: int = 0
-    output_tokens: int = 0
     seconds: float = 0.0
 
 

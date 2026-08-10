@@ -19,10 +19,12 @@ class ScriptedModel(Runnable):
         self.results = list(results)
         self.received = []
         self.schemas = []
+        self.methods = []
 
     def with_structured_output(self, schema, **kwargs):
-        """Record the requested schema and return self."""
+        """Record the requested schema and method, and return self."""
         self.schemas.append(schema)
+        self.methods.append(kwargs.get("method"))
         return self
 
     def invoke(self, input, config=None, **kwargs):
@@ -38,7 +40,10 @@ class ScriptedModel(Runnable):
     @property
     def prompts(self) -> list[str]:
         """Every prompt rendered as text, for asserting what a node was shown."""
-        return [str(received) for received in self.received]
+        return [
+            received.to_string() if hasattr(received, "to_string") else str(received)
+            for received in self.received
+        ]
 
 
 @pytest.fixture

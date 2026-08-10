@@ -56,9 +56,7 @@ def _trace(**overrides):
             _finding("expenditure_agent", 18, 5.0, "Future Energy Fund"),
         ],
         answer="Revenue is $108.6 billion (p.13). The Fund receives $5.0 billion (p.18).",
-        costs=[
-            NodeCost(node="supervisor", input_tokens=350, output_tokens=120, seconds=1.1)
-        ],
+        costs=[NodeCost(node="supervisor", seconds=1.1)],
     )
     defaults.update(overrides)
     return Trace(**defaults)
@@ -144,11 +142,11 @@ def test_render_includes_query_answer_and_citations():
 
 
 def test_costs_render_with_a_total():
-    """Token and time costs are reported, given the daily quota."""
+    """Per-node timings are reported with a total."""
     rendered = _trace().costs_table()
 
     assert "supervisor" in rendered
-    assert "350" in rendered
+    assert "1.10" in rendered
     assert "total" in rendered.lower()
 
 

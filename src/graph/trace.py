@@ -19,10 +19,6 @@ from dataclasses import dataclass, field
 
 from src.graph.state import AGENTS, Decision, Finding, NodeCost
 
-# Groq's free tier allows this many tokens per model per day. Reported
-# alongside a run's cost so the figure has a denominator.
-DAILY_TOKEN_QUOTA = 100_000
-
 
 @dataclass(frozen=True)
 class Citation:
@@ -136,29 +132,19 @@ class Trace:
         return "\n".join(lines)
 
     def costs_table(self) -> str:
-        """What the run cost, against the daily quota."""
+        """How long each node took."""
         if not self.costs:
             return "(costs not recorded)"
 
-        lines = [f"{'node':<20} {'in':>8} {'out':>8} {'seconds':>9}"]
-        total_in = total_out = 0
+        lines = [f"{'node':<20} {'seconds':>9}"]
         total_seconds = 0.0
 
         for cost in self.costs:
-            lines.append(
-                f"{cost.node:<20} {cost.input_tokens:>8,} {cost.output_tokens:>8,} "
-                f"{cost.seconds:>9.2f}"
-            )
-            total_in += cost.input_tokens
-            total_out += cost.output_tokens
+            lines.append(f"{cost.node:<20} {cost.seconds:>9.2f}")
             total_seconds += cost.seconds
 
-        share = (total_in + total_out) / DAILY_TOKEN_QUOTA * 100
-        lines.append("-" * 48)
-        lines.append(
-            f"{'total':<20} {total_in:>8,} {total_out:>8,} {total_seconds:>9.2f}"
-            f"   ({share:.1f}% of daily quota)"
-        )
+        lines.append("-" * 30)
+        lines.append(f"{'total':<20} {total_seconds:>9.2f}")
 
         return "\n".join(lines)
 

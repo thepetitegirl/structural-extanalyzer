@@ -73,12 +73,26 @@ def score_dates(results: list[dict], expected: dict | None = None) -> Report:
     """Score normalised, classified dates against the known answers.
 
     `results` is the output of date_reasoning.to_output(): one entry per date
-    with original_text, normalized_date and status.
+    with original_text, normalized_date and status. Scored on those keys only:
+    the required output shape carries no page, so unlike the Part 1 fields the
+    page in expected.yaml is a reference for the reader, not a check.
     """
     if expected is None:
         expected = expected_dates()
 
     checks = []
+
+    # zip truncates, so a missing date would otherwise pass by never being
+    # compared - and an empty result set would score as a perfect report.
+    if len(results) != len(expected):
+        checks.append(
+            Check(
+                "date count",
+                False,
+                f"expected {len(expected)} dates, got {len(results)}",
+            )
+        )
+
     for (name, want), got in zip(expected.items(), results, strict=False):
         problems = []
 

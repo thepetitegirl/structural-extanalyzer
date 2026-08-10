@@ -132,6 +132,12 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
                 "pages are 1-indexed."
             )
 
+    # Turn one can only route to an agent, so a cap below 2 would force
+    # synthesis with no findings - the very state guard 3 exists to prevent.
+    max_turns = int(data.get("max_turns", 4))
+    if max_turns < 2:
+        raise ConfigError(f"max_turns must be at least 2, got {max_turns}.")
+
     return Config(
         pdf_path=data["pdf_path"],
         pdf_url=data.get("pdf_url"),
@@ -142,5 +148,5 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
         field_pages=field_pages,
         date_pages=list(data.get("date_pages", [])),
         agent_pages={k: list(v) for k, v in agent_pages.items()},
-        max_turns=int(data.get("max_turns", 4)),
+        max_turns=max_turns,
     )

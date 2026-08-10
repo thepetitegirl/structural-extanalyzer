@@ -37,7 +37,16 @@ def server_parameters() -> StdioServerParameters:
 
 
 def _tool_text(result) -> str | None:
-    """Pull the text payload out of an MCP tool result."""
+    """Pull the text payload out of an MCP tool result.
+
+    A server-side tool exception arrives as a normal result with `isError`
+    set, not as a raised exception - returning its message as if it were a
+    value would hand the caller an error string where a date was expected.
+    """
+    if result.isError:
+        detail = result.content[0].text if result.content else "no detail"
+        raise RuntimeError(f"MCP tool call failed: {detail}")
+
     if not result.content:
         return None
 
@@ -70,18 +79,6 @@ async def normalize_dates_via_mcp(texts: list[str]) -> list[str | None]:
                 results.append(_tool_text(result))
 
             return results
-
-
-async def classify_date_via_mcp(iso_date: str, reference: str = "2024-01-01") -> str:
-    """Classify one ISO date against a reference, using the MCP server."""
-    async with stdio_client(server_parameters()) as (read, write):
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-
-            result = await session.call_tool(
-                "classify_date", {"iso_date": iso_date, "reference": reference}
-            )
-            return _tool_text(result)
 
 
 async def list_tools() -> list[dict]:

@@ -5,8 +5,9 @@ cover both, and in particular that an override is recorded rather than
 silently applied - a forced route must never be presented as a decision.
 """
 
-from src.agents.supervisor import RouteDecision, route
+from src.agents.supervisor import RouteDecision, decide, route
 from src.graph.state import Figure, Finding
+from tests.conftest import ScriptedModel
 
 
 def _finding(agent="revenue_agent"):
@@ -165,3 +166,42 @@ def test_sub_task_is_carried_into_the_record(config):
     )
 
     assert record.sub_task == "Identify FY2024 revenue streams"
+
+
+def test_decide_fills_empty_slots_with_placeholders(config):
+    """On the first turn the prompt says so, rather than showing empty slots."""
+    model = ScriptedModel([_decision("revenue_agent")])
+
+    decide({"query": "What are the revenue streams?"}, model, config)
+
+    assert "Agents already consulted: none" in model.prompts[0]
+    assert "(none yet)" in model.prompts[0]
+
+
+def test_decide_numbers_the_turn_from_decisions_so_far(config):
+    """Two decisions recorded means this is turn three."""
+    model = ScriptedModel([_decision("synthesis")])
+    state = {
+        "query": "q",
+        "findings": [_finding()],
+        "visited": ["revenue_agent"],
+        "decisions": ["turn 1", "turn 2"],
+    }
+
+    _, record = decide(state, model, config)
+
+    assert record.turn == 3
+
+
+def test_decide_requests_route_decisions_in_json_mode(config):
+    """The schema is RouteDecision and the method json_mode.
+
+    json_mode is load-bearing: Groq's parser rejects the tool-call wrapper
+    over a long reasoning field, so losing it breaks live runs only.
+    """
+    model = ScriptedModel([_decision("revenue_agent")])
+
+    decide({"query": "q"}, model, config)
+
+    assert model.schemas == [RouteDecision]
+    assert model.methods == ["json_mode"]

@@ -16,7 +16,7 @@ NODE_NAME = "expenditure_agent"
 def expenditure_node(state, model, config, pdf_path):
     """Run the expenditure agent and append its finding to state."""
     finding = run_agent(
-        AGENT_KEY, pdf_path, state.get("sub_task", state["query"]), model, config
+        AGENT_KEY, pdf_path, state.get("sub_task") or state["query"], model, config
     )
 
     return {"findings": [finding], "visited": [NODE_NAME]}

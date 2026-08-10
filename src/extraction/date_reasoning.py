@@ -120,10 +120,16 @@ def classify(
         )
 
     # Only the normalised dates and their source text reach the model. Without
-    # the document it cannot introduce a date that was never extracted.
+    # the document it cannot introduce a date that was never extracted. A date
+    # the tool could not parse has no ISO form to classify, so it is excluded
+    # rather than shown as the literal "None"; main() reports the skip.
+    usable = [entry for entry in dates if entry["normalized_date"] is not None]
+    if not usable:
+        raise ValueError("No parseable dates to classify.")
+
     listing = "\n".join(
         f"- {entry['normalized_date']}  (from: {entry['original_text']})"
-        for entry in dates
+        for entry in usable
     )
 
     chain = load_prompt("date_reasoning") | model.with_structured_output(
@@ -140,6 +146,10 @@ def main() -> None:
     pdf_path = ensure_pdf(config.pdf_url, config.pdf_path)
     found = find_dates(pdf_path, config.date_pages, config=config)
     normalised = normalized_with_context(found)
+
+    for entry in normalised:
+        if entry["normalized_date"] is None:
+            print(f"WARNING: could not normalise {entry['original_text']!r}; skipped.")
 
     classified = classify(normalised, config=config)
 

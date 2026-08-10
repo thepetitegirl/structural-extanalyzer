@@ -58,13 +58,19 @@ values into typed fields - it does not compute or recall.
 uv sync
 cp .env.example .env          # add GROQ_API_KEY (free, no card)
 
-uv run pytest                 # 173 tests, no key or network needed
+uv run pytest                 # 183 tests, no key or network needed
 uv run ruff check .
 
-uv run python -m src.extraction.extractor      # part 1: five fields, scored
-uv run python -m src.extraction.dates          # part 2: normalised dates
-uv run python -m src.extraction.date_reasoning # part 2: classified dates
-uv run python -m src.graph.workflow            # part 3: supervisor + trace
+# Part 1 - extraction
+uv run python -m src.extraction.extractor      # five fields, scored
+
+# Part 2 - dates and tools
+uv run python -m src.extraction.dates          # dates found and normalised
+uv run python -m src.extraction.date_reasoning # classified vs 2024-01-01, checked
+uv run python -m src.tools.mcp_client          # smoke check: list the MCP server's tools
+
+# Part 3 - supervisor
+uv run python -m src.graph.workflow            # the required query, with trace
 ```
 
 The source PDF is downloaded from the URL in `config.yml` on first use and
@@ -203,6 +209,12 @@ pages state $billion. Normalising would hide a 1000x error.
 FY2024. That follows from the page citations rather than a consistent year
 choice, so no single target year is correct for all five fields.
 
+**"Latest Actual Fiscal Position" is read as the latest available figure** —
+the Revised FY2023 deficit, -3.57. Table 1.1's strictly *Actual* column is
+FY2022 (1.72, a surplus); that reading would break with every other field,
+which the spec labels 2024 and the cited pages state as FY2023. The rejected
+alternative is noted here rather than silently dropped.
+
 **Dates are explicit calendar dates.** Open-ended expressions - "till present",
 "with immediate effect" - are out of scope; `normalize_date` returns None
 rather than inventing a boundary.
@@ -270,20 +282,46 @@ not, but this is a project constraint rather than a clean win.
 
 ```
 config.yml                     # pdf url, page bindings, model, agent pages
-.env                           # GROQ_API_KEY (gitignored)
+.env                           # GROQ_API_KEY (gitignored; see .env.example)
 prompts/                       # every prompt, edited without touching Python
+  extraction.yaml              #   part 1, the version in use
+  extraction_v1.yaml           #   part 1, first attempt - kept for comparison
+  dates.yaml                   #   part 2: locate dates on pp.1, 36
+  date_reasoning.yaml          #   part 2: classify vs the fixed reference
+  supervisor.yaml              #   part 3: routing, reasoning before choice
+  revenue_agent.yaml           #   part 3: revenue specialist
+  expenditure_agent.yaml       #   part 3: expenditure specialist
+  synthesis.yaml               #   part 3: forbids inventing a revenue link
 evaluation/
   expected.yaml                # known-correct values for parts 1 and 2
   demo_queries.yaml            # part 3 queries and expected routing
 src/
-  config.py                    # config.yml + .env
-  llm.py                       # get_chat_model(provider, model)
-  evaluation.py                # scoring for parts 1 and 2
-  ingestion/                   # download and parse the PDF
-  extraction/                  # part 1 fields, part 2 dates
-  tools/                       # date tools, MCP server and client
-  agents/                      # part 3 specialists and supervisor
-  graph/                       # part 3 state, workflow, trace, scoring
-notebooks/                     # evidence for each decision
-tests/                         # 173 tests; model stubbed, no network
+  config.py                    # config.yml + .env -> one settings object
+  llm.py                       # get_chat_model(provider, model), Groq only
+  evaluation.py                # Check/Report scoring for parts 1 and 2
+  ingestion/
+    download.py                # ensure_pdf(): fetch once, cache in data/
+    parser.py                  # extract_pages(): pypdf, --- page N --- markers
+  extraction/
+    schemas.py                 # part 1 fields, each with page provenance
+    prompts.py                 # load_prompt(name) -> ChatPromptTemplate
+    extractor.py               # part 1 chain and entry point
+    dates.py                   # part 2: find dates, normalise via the tool
+    date_reasoning.py          # part 2: LLM classifies, checker verifies
+  tools/
+    date_tool.py               # normalize_date, classify_date as @tool
+    mcp_server.py              # the same tools over stdio via FastMCP
+    mcp_client.py              # MCP session helpers and tool listing
+  agents/
+    base.py                    # AgentReport, run_agent()
+    revenue_agent.py           # thin wrapper over base, pages 9, 13, 15
+    expenditure_agent.py       # thin wrapper over base, pages 16, 18, 20
+    supervisor.py              # RouteDecision, guards, route()
+  graph/
+    state.py                   # SupervisorState, Finding, Decision, NodeCost
+    trace.py                   # Trace: table(), summary(), render()
+    workflow.py                # build_graph(), run_query(), stream_trace()
+    evaluation.py              # score_part3() and the four checks
+notebooks/                     # evidence for each decision (table above)
+tests/                         # 183 tests; model stubbed, no network
 ```

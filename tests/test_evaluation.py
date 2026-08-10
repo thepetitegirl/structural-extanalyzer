@@ -5,7 +5,7 @@ Scoring is pure comparison, so these run without a model or a network call.
 
 import pytest
 
-from src.evaluation import load_expected, score_result
+from src.evaluation import load_expected, score_dates, score_result
 from src.extraction.schemas import ExtractionResult, Money, Percentage, TaxList
 
 
@@ -138,3 +138,21 @@ def test_summary_counts_passes(expected):
     report = score_result(_result(), expected)
 
     assert report.summary().startswith("5/5")
+
+
+def test_correct_dates_pass(expected):
+    """Both dates right on value and status score a full pass."""
+    results = [
+        {"original_text": "a", "normalized_date": "2024-02-16", "status": "Upcoming"},
+        {"original_text": "b", "normalized_date": "2008-02-15", "status": "Expired"},
+    ]
+
+    assert score_dates(results, expected["dates"]).passed
+
+
+def test_missing_date_fails_the_count_check(expected):
+    """A short result set fails loudly instead of passing by truncation."""
+    report = score_dates([], expected["dates"])
+
+    assert not report.passed
+    assert any(check.field == "date count" for check in report.checks)

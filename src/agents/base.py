@@ -11,13 +11,12 @@ graph state, which is what keeps a multi-hop run affordable.
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from src.extraction.prompts import load_prompt
-from src.graph.state import Figure, Finding, NodeCost
+from src.graph.state import Figure, Finding
 from src.ingestion.parser import extract_pages
 
 # An agent's pages should be a few thousand characters. The whole document is
@@ -72,26 +71,3 @@ def run_agent(
         figures=report.figures,
         pages_read=pages,
     )
-
-
-def timed(node: str):
-    """Context manager recording how long a node took.
-
-    Token counts come from the model response where the provider supplies them;
-    the elapsed time is measured here so a slow node is visible even when usage
-    metadata is absent.
-    """
-
-    class _Timer:
-        def __enter__(self):
-            self.started = time.perf_counter()
-            self.cost = NodeCost(node=node)
-            return self
-
-        def __exit__(self, *exc):
-            self.cost = self.cost.model_copy(
-                update={"seconds": round(time.perf_counter() - self.started, 3)}
-            )
-            return False
-
-    return _Timer()

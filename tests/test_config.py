@@ -237,3 +237,9 @@ def test_ollama_needs_no_api_key(tmp_path, monkeypatch):
     monkeypatch.delenv("OLLAMA_HOST", raising=False)
 
     assert load_config(path).api_key() is None
+
+
+def test_max_turns_below_two_raises(tmp_path):
+    """Turn one can only route to an agent, so a cap below 2 is invalid."""
+    with pytest.raises(ConfigError, match="max_turns"):
+        load_config(_config_with(tmp_path, max_turns=1))
