@@ -79,7 +79,7 @@ def score_dates(results: list[dict], expected: dict | None = None) -> Report:
         expected = expected_dates()
 
     checks = []
-    for (name, want), got in zip(expected.items(), results):
+    for (name, want), got in zip(expected.items(), results, strict=False):
         problems = []
 
         if got.get("normalized_date") != want["normalized"]:
@@ -93,9 +93,7 @@ def score_dates(results: list[dict], expected: dict | None = None) -> Report:
         if problems:
             checks.append(Check(name, False, "; ".join(problems)))
         else:
-            checks.append(
-                Check(name, True, f"{want['normalized']} ({want['status']})")
-            )
+            checks.append(Check(name, True, f"{want['normalized']} ({want['status']})"))
 
     return Report(checks)
 

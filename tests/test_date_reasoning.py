@@ -5,7 +5,6 @@ classification is caught rather than accepted - which is the point of the
 module.
 """
 
-import pytest
 from langchain_core.runnables import Runnable
 
 from src.extraction.date_reasoning import (

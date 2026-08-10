@@ -49,27 +49,21 @@ def test_unparseable_text_returns_none():
 
 def test_past_date_is_expired():
     """A date before the reference date has passed."""
-    status = classify_date.invoke(
-        {"iso_date": "2008-02-15", "reference": "2024-01-01"}
-    )
+    status = classify_date.invoke({"iso_date": "2008-02-15", "reference": "2024-01-01"})
 
     assert status == DateStatus.EXPIRED
 
 
 def test_future_date_is_upcoming():
     """A date after the reference date is still to come."""
-    status = classify_date.invoke(
-        {"iso_date": "2024-02-16", "reference": "2024-01-01"}
-    )
+    status = classify_date.invoke({"iso_date": "2024-02-16", "reference": "2024-01-01"})
 
     assert status == DateStatus.UPCOMING
 
 
 def test_reference_date_itself_is_ongoing():
     """A date equal to the reference is active, not past or future."""
-    status = classify_date.invoke(
-        {"iso_date": "2024-01-01", "reference": "2024-01-01"}
-    )
+    status = classify_date.invoke({"iso_date": "2024-01-01", "reference": "2024-01-01"})
 
     assert status == DateStatus.ONGOING
 

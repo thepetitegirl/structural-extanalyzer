@@ -53,7 +53,9 @@ def extract(
 
     if model is None:
         config.api_key()  # fail here rather than mid-request
-        model = get_chat_model(config.provider, config.model, temperature=config.temperature)
+        model = get_chat_model(
+            config.provider, config.model, temperature=config.temperature
+        )
 
     page_text = extract_pages(pdf_path, pages)
     chain = build_chain(model)

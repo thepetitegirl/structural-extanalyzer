@@ -8,8 +8,8 @@ not the document.
 from __future__ import annotations
 
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 # A PDF always starts with this. Checking it catches the common failure where a
 # redirect returns an HTML error page that would otherwise be saved as a .pdf

@@ -6,10 +6,9 @@ The model is always a stub: no test may reach the network or spend API budget.
 import pytest
 from langchain_core.runnables import Runnable
 
-from src.extraction.extractor import build_chain, extract, page_variables
+from src.extraction.extractor import build_chain, extract
 from src.extraction.schemas import ExtractionResult, Money, Percentage, TaxList
 from src.llm import UnsupportedProviderError, get_chat_model
-
 
 PAGE_VARS = {
     "page_cit": "5",
@@ -68,7 +67,9 @@ def test_chain_returns_validated_result(expected_result):
     """The chain yields an ExtractionResult, not raw text."""
     chain = build_chain(StubModel(expected_result))
 
-    result = chain.invoke({"page_text": "--- page 5 ---", "target_year": "FY2023", **PAGE_VARS})
+    result = chain.invoke(
+        {"page_text": "--- page 5 ---", "target_year": "FY2023", **PAGE_VARS}
+    )
 
     assert isinstance(result, ExtractionResult)
     assert result.corporate_income_tax.value == 28.4
@@ -79,7 +80,11 @@ def test_chain_passes_page_text_to_model(expected_result):
     model = StubModel(expected_result)
 
     build_chain(model).invoke(
-        {"page_text": "--- page 8 ---\nOVERALL FISCAL POSITION", "target_year": "FY2023", **PAGE_VARS}
+        {
+            "page_text": "--- page 8 ---\nOVERALL FISCAL POSITION",
+            "target_year": "FY2023",
+            **PAGE_VARS,
+        }
     )
 
     rendered = str(model.received)

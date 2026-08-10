@@ -4,7 +4,6 @@ Scoring is pure comparison, so these run without a model or a network call.
 """
 
 import pytest
-import yaml
 
 from src.evaluation import load_expected, score_result
 from src.extraction.schemas import ExtractionResult, Money, Percentage, TaxList
@@ -56,7 +55,7 @@ def test_wrong_value_fails(expected):
 
     assert not report.passed
     failed = [c for c in report.checks if not c.passed]
-    assert any("corporate_income_tax" == c.field for c in failed)
+    assert any(c.field == "corporate_income_tax" for c in failed)
 
 
 def test_right_value_from_wrong_page_fails(expected):

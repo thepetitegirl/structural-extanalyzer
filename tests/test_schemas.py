@@ -24,7 +24,9 @@ def test_money_rejects_unknown_unit():
 
 def test_money_accepts_negative_value():
     """Deficits are negative; parenthesised source figures map to a minus sign."""
-    field = Money(value=-3.57, unit="billion", page=8, quote="OVERALL FISCAL POSITION (3.57)")
+    field = Money(
+        value=-3.57, unit="billion", page=8, quote="OVERALL FISCAL POSITION (3.57)"
+    )
 
     assert field.value == -3.57
 
@@ -76,7 +78,9 @@ def test_extraction_result_holds_all_five_fields(sample_result):
 def test_extraction_result_rejects_missing_field():
     """Every field is required; a partial extraction fails validation."""
     with pytest.raises(ValidationError):
-        ExtractionResult(corporate_income_tax=Money(value=28.38, unit="billion", page=8, quote="x"))
+        ExtractionResult(
+            corporate_income_tax=Money(value=28.38, unit="billion", page=8, quote="x")
+        )
 
 
 @pytest.fixture
@@ -84,7 +88,10 @@ def sample_result():
     """A fully populated result, using the document's known values."""
     return ExtractionResult(
         corporate_income_tax=Money(
-            value=28.38, unit="billion", page=8, quote="Corporate Income Tax 23.07 24.26 28.38"
+            value=28.38,
+            unit="billion",
+            page=8,
+            quote="Corporate Income Tax 23.07 24.26 28.38",
         ),
         corporate_income_tax_yoy=Percentage(
             value=17.0, page=5, quote="$4.1 billion (17.0%) higher"
@@ -96,6 +103,9 @@ def sample_result():
             quote="higher collections from Corporate Income Tax",
         ),
         fiscal_position=Money(
-            value=-3.57, unit="billion", page=8, quote="OVERALL FISCAL POSITION 1.72 (0.35) (3.57)"
+            value=-3.57,
+            unit="billion",
+            page=8,
+            quote="OVERALL FISCAL POSITION 1.72 (0.35) (3.57)",
         ),
     )

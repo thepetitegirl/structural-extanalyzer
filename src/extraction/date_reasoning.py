@@ -22,13 +22,12 @@ attached.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 from src.config import load_config
-from src.extraction.dates import find_dates, normalized_with_context
 from src.evaluation import score_dates
+from src.extraction.dates import find_dates, normalized_with_context
 from src.extraction.prompts import load_prompt
 from src.ingestion.download import ensure_pdf
 from src.llm import get_chat_model
@@ -81,9 +80,7 @@ def to_output(classified: DateClassifications) -> list[dict]:
     ]
 
 
-def check(
-    classified: DateClassifications, reference: str = REFERENCE_DATE
-) -> list[dict]:
+def check(classified: DateClassifications, reference: str = REFERENCE_DATE) -> list[dict]:
     """Compare each classification against the deterministic tool.
 
     Kept separate from the answer: the requirement's output is three keys, so
@@ -156,16 +153,17 @@ def main() -> None:
     disagreements = [entry for entry in checked if not entry["agrees"]]
 
     if disagreements:
-        print(f"\nWARNING: {len(disagreements)} classification(s) disagree "
-              "with the deterministic check:")
+        print(
+            f"\nWARNING: {len(disagreements)} classification(s) disagree "
+            "with the deterministic check:"
+        )
         for entry in disagreements:
             print(
                 f"  {entry['normalized_date']}: model said "
                 f"{entry['model_status']}, tool computes {entry['tool_status']}"
             )
     else:
-        print(f"\nAll {len(checked)} classifications agree with the "
-              "deterministic check.")
+        print(f"\nAll {len(checked)} classifications agree with the deterministic check.")
 
 
 if __name__ == "__main__":

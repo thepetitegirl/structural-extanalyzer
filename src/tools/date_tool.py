@@ -77,9 +77,7 @@ def normalize_date(text: str) -> str | None:
 
 
 @tool
-def classify_period(
-    start: str, end: str, reference: str = "2024-01-01"
-) -> DateStatus:
+def classify_period(start: str, end: str, reference: str = "2024-01-01") -> DateStatus:
     """Classify a date range against a reference date.
 
     A period is Ongoing when it has started and has not yet finished - that is,

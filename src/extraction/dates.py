@@ -89,9 +89,7 @@ def normalized_with_context(found: DocumentDates) -> list[dict]:
     return [
         {
             "original_text": finding.original_text,
-            "normalized_date": normalize_date.invoke(
-                {"text": finding.date_as_written}
-            ),
+            "normalized_date": normalize_date.invoke({"text": finding.date_as_written}),
             "page": finding.page,
         }
         for finding in (found.distribution, found.estate_duty)
