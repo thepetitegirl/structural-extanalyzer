@@ -1,31 +1,86 @@
 # structural-extanalyzer
 
 Structured extraction from the Singapore MOF *Analysis of Revenue and
-Expenditure FY2024*, using LangChain prompting, tool calling, and a LangGraph
-multi-agent supervisor.
+Expenditure FY2024*, in three parts: LangChain prompting, tool calling via a
+local MCP server, and a LangGraph multi-agent supervisor.
 
-## Pipeline
+## The three parts
 
 ```mermaid
-flowchart LR
-    PDF[("PDF<br/>37 pages")] --> P["pypdf<br/>extract_pages()"]
-    P --> T["page text<br/>pp. 5, 6, 8, 20"]
-    T --> C["ChatPromptTemplate<br/>prompts/extraction.yaml"]
-    C --> L["llama-3.3-70b<br/>with_structured_output"]
-    L --> R["ExtractionResult<br/>value + unit + page + quote"]
-    R --> E["score_result()<br/>vs expected.yaml"]
+flowchart TD
+    PDF[("PDF, 37 pages<br/>downloaded from config.yml")]
 
-    CFG["config.yml"] -.-> P
-    CFG -.-> C
-    CFG -.-> L
-    ENV[".env<br/>GROQ_API_KEY"] -.-> L
+    PDF --> PARSE["pypdf extract_pages()<br/>page text with --- page N --- markers"]
+
+    subgraph P1["Part 1 - extraction"]
+        direction TB
+        P1P["prompts/extraction.yaml<br/>pages 5, 6, 8, 20"]
+        P1P --> P1L["LLM + structured output"]
+        P1L --> P1R["five fields<br/>value + unit + page + quote"]
+        P1R --> P1S["score_result()"]
+    end
+
+    subgraph P2["Part 2 - dates and tools"]
+        direction TB
+        P2P["prompts/dates.yaml<br/>pages 1, 36"]
+        P2P --> P2F["LLM finds dates as written"]
+        P2F --> P2N["normalize_date<br/>via local MCP server"]
+        P2N --> P2C["LLM classifies vs 2024-01-01"]
+        P2C --> P2V["classify_date verifies"]
+    end
+
+    subgraph P3["Part 3 - supervisor"]
+        direction TB
+        P3S{"supervisor<br/>routes each turn"}
+        P3S -->|revenue| P3R["revenue agent<br/>pages 9, 13, 15"]
+        P3S -->|expenditure| P3E["expenditure agent<br/>pages 16, 18, 20"]
+        P3R -.->|finding| P3S
+        P3E -.->|finding| P3S
+        P3S -->|done| P3Y["synthesis + trace"]
+        P3S -->|out of scope| P3D["decline"]
+    end
+
+    PARSE --> P1P
+    PARSE --> P2P
+    PARSE --> P3S
+
+    CFG["config.yml<br/>pages, bindings, model"] -.-> PARSE
+    ENV[".env<br/>GROQ_API_KEY"] -.-> P1L
 ```
 
-No database and no vector store: the page holding each field is known, so
-retrieval is already solved. The model reads the supplied text and copies values
-into typed fields - it does not compute or recall.
+No database and no vector store: the page holding each answer is known, so
+retrieval is already solved. The model reads the supplied text and copies
+values into typed fields - it does not compute or recall.
 
-## Results
+## Quick start
+
+```bash
+uv sync
+cp .env.example .env          # add GROQ_API_KEY (free, no card)
+
+uv run pytest                 # 173 tests, no key or network needed
+uv run ruff check .
+
+uv run python -m src.extraction.extractor      # part 1: five fields, scored
+uv run python -m src.extraction.dates          # part 2: normalised dates
+uv run python -m src.extraction.date_reasoning # part 2: classified dates
+uv run python -m src.graph.workflow            # part 3: supervisor + trace
+```
+
+The source PDF is downloaded from the URL in `config.yml` on first use and
+cached in `data/`, which is gitignored - a fresh clone needs only the config.
+
+Notebooks carry the evidence for each decision:
+
+| Notebook | Shows |
+|---|---|
+| `00_parser_comparison.ipynb` | Why pypdf, measured against PyMuPDF and pdfplumber |
+| `01_value_exploration.ipynb` | What the correct answers are, derived from the document |
+| `02_extraction.ipynb` | Model selection and two prompt versions, scored |
+| `03_dates.ipynb` | MCP server, normalisation, classification with a check |
+| `04_supervisor.ipynb` | The graph, seven demo queries, and the decision trace |
+
+## Part 1: extraction
 
 All five fields extract correctly from their cited pages.
 
@@ -37,45 +92,11 @@ All five fields extract correctly from their cited pages.
 | Taxes in Operating Revenue | 7 names | - | 5-6 |
 | Overall Fiscal Position | -3.57 | billion | 8 |
 
-## Quick start
-
-```bash
-uv sync
-cp .env.example .env          # add GROQ_API_KEY (free, no card)
-
-uv run pytest                 # 51 tests, no key or network needed
-uv run python -m src.extraction.extractor    # extract and score
-```
-
-`data/` is gitignored: place the source PDF at the path named in `config.yml`.
-
-## Layout
-
-```
-config.yml                        # pdf path, target pages, field->page bindings, model
-prompts/
-  extraction.yaml                 # current prompt
-  extraction_v1.yaml              # first version, kept for comparison
-evaluation/expected.yaml          # known-correct values, page-bound
-src/
-  config.py                       # config.yml + .env
-  llm.py                          # get_chat_model(provider, model)
-  evaluation.py                   # score a result against expected.yaml
-  ingestion/parser.py             # pypdf text extraction
-  extraction/{schemas,prompts,extractor}.py
-notebooks/
-  00_parser_comparison.ipynb      # parser choice, measured
-  01_value_exploration.ipynb      # what the correct answers are, and why
-  02_extraction.ipynb             # model selection + prompt engineering
-tests/                            # pytest; model mocked, no network
-```
-
-## Decisions
-
 ### Parser: pypdf
 
-Measured in `00_parser_comparison.ipynb`. Three of five fields are read from the
-table on page 8, so a figure is only useful if it stays bound to its label.
+Measured in `00_parser_comparison.ipynb`. Three of the five fields are read
+from the table on page 8, so a figure is only useful if it stays bound to its
+label.
 
 | Parser | Row integrity (p.8) | Speed (4 pp.) | Verdict |
 |---|---|---:|---|
@@ -85,52 +106,77 @@ table on page 8, so a figure is only useful if it stays bound to its label.
 | Docling | - | - | Rejected - no scanned pages |
 | OCR | - | - | N/A - zero raster images |
 
-PyMuPDF is usually the recommended default on speed. That inverts here: speed is
-only a tiebreak among parsers that are already correct.
+PyMuPDF is usually recommended as the fastest default. That inverts here:
+speed is only a tiebreak among parsers that are already correct.
 
 `pdfplumber.extract_tables()` returns 0 tables on page 8 - the table has no
 ruling lines and detection is line-based - so no parser yields a cell grid.
 
-### Model: llama-3.3-70b-versatile on Groq
+### Prompt engineering
 
-Measured in `02_extraction.ipynb`. Constraint: free tier, no card. GPT-4 and
-Claude are excluded on cost, not merit.
+The first prompt got three of five fields right. It named the correct page for
+every field and still read the wrong one twice, because it treated the page
+citations as preferences rather than constraints. Both versions are kept
+(`prompts/extraction.yaml` and `extraction_v1.yaml`) and run side by side in
+the notebook.
 
-| Model | Provider | Source | Result |
+Wording proved load-bearing: changing "read both pages to the end" to "read
+those pages to the end" changed which taxes were returned, reproducibly at
+temperature 0.
+
+## Part 2: dates and tools
+
+| Date | Page | Normalised | Status vs 2024-01-01 |
 |---|---|---|---|
-| **llama-3.3-70b-versatile** | Groq | open | **Chosen** |
-| llama-3.1-8b-instant | Groq | open | Works |
-| gpt-oss-20b / 120b | Groq | open | Fail - no tool-calling |
-| qwen3:8b, llama3.2 | Ollama | open | Wrong value: 28400000000.0 |
-| gemini-2.0-flash | Google | closed | Rate-limited |
+| Distribution | 1 | 2024-02-16 | Upcoming |
+| Estate Duty | 36 | 2008-02-15 | Expired |
 
-`with_structured_output` needs native tool-calling. gpt-oss fails at 20B **and**
-120B, so this is a training decision rather than a scale effect - a model can be
-capable and still unusable here. Local models call the tool but fold the unit
-into the value, failing silently rather than raising.
+The split is deliberate: the model finds dates in prose because phrasing
+varies, and a tool parses them because that has one right answer. The
+requirement asks for LLM *reasoning* on the classification, so the model
+decides and `classify_date` verifies afterwards - detection rather than
+prevention, since prevention would mean not asking the model at all.
 
-### Free-tier limits are a real constraint
+`src/tools/mcp_server.py` exposes both tools over stdio and is what the
+pipeline uses. The `@tool` decorators remain as an automatic fallback; both
+share one implementation, so the server is a transport rather than a second
+copy.
 
-| | Ollama (local) | Groq | Gemini |
-|---|---|---|---|
-| Disk / RAM | 2.0-5.2 GB / 2.5-5.6 GB | none | none |
-| Rate limit | **none** | 100k tokens/day | tight free tier |
-| Correct value | **No** - 28400000000.0 | Yes | - |
+## Part 3: multi-agent supervisor
 
-Neither free hosted tier supports sustained development. Groq's 100k tokens/day
-was exhausted in one session of prompt iteration - an extraction call is ~3,200
-tokens and a full notebook run ~13,000, so about seven runs per day. Gemini's
-free tier is rate-limited too.
+Agents route unconditionally back to the supervisor, which is the only node
+that decides. A fixed chain would have no decision to trace, and the trace is
+what the requirement asks for.
 
-Local models have no limit but are silently wrong. Groq was chosen because a
-hard failure is recoverable where a wrong number is not, but this is a project
-constraint rather than a clean win.
+**Seven demo queries, seven correct routes** - single-agent both ways, two
+agents collaborating, and two queries declined without invoking either.
+Queries live in `evaluation/demo_queries.yaml` so one can be added or disabled
+without touching code.
+
+**Page 13 is scoped to revenue only, deliberately.** It carries both the
+revenue total and the top-ups sentence, so keeping it out of the expenditure
+set means neither agent can answer the combined query alone. The collaboration
+is structural, and asserted in the tests.
+
+**The supervisor's choice is guarded.** Three deterministic rules - no agent
+twice, a turn cap, no synthesis before any finding - and each records itself in
+the trace when it fires, so a forced route is never presented as a decision.
+
+### Scoring an open-ended answer
+
+Prose has no single correct wording, so it is not scored. Four things are:
+
+| Check | Catches |
+|---|---|
+| Routing | An agent that should have run and did not, or one that ran needlessly |
+| Figures | A wrong value, or the right value with the wrong unit |
+| Traceability | A quote that does not appear on the page it cites |
+| Page discipline | A figure from a page the agent was never given |
 
 ## Assumptions
 
-**Only the cited pages are read** (5, 6, 8, 20), set in `config.yml`. This is a
-correctness measure, not an optimisation. "Corporate Income Tax" appears eight
-times across seven pages:
+**Only the cited pages are read.** A correctness measure, not an optimisation.
+"Corporate Income Tax" appears eight times across seven pages:
 
 | Page | Value | What it is |
 |---|---|---|
@@ -142,45 +188,102 @@ times across seven pages:
 | 26 | 28,380 / 28,029 | same figures in $million |
 | 27 | 3.9% | share of GDP |
 
-All plausible. They differ by year, unit, and kind, and nothing in the number
-says which. Restricting the input eliminates seven wrong answers before the model
-reads anything.
+All plausible. They differ by year, unit and kind, and nothing in the number
+says which. Restricting the input eliminates seven wrong answers before the
+model reads anything.
 
 **Each field is read from the page cited for it,** not from wherever the figure
 is most precise. Page 5 says "$28.4 billion"; page 8's table says 28.38. The
 citation decides.
 
-**The value must match the cited page exactly, in the form written there.**
-"$28.4 billion" means `value=28.4, unit=billion` - not 28.38 (another page's
-precision), not 28400000000 (unit folded into the number), not 28,400 (converted
-to million). Value and unit are separate fields so the two cannot be silently
-combined; the local models failed exactly here.
-
 **Units are recorded, not converted.** Page 20 states $million while the other
-pages state $billion. Normalising would hide a 1000x error. A scan of all 37
-pages finds only these two scales, so `Money.unit` is constrained to them.
+pages state $billion. Normalising would hide a 1000x error.
 
 **Target year is Revised FY2023,** except top-ups, which page 20 states for
 FY2024. That follows from the page citations rather than a consistent year
 choice, so no single target year is correct for all five fields.
 
-**Page bindings live in `config.yml`,** not in the prompt text. A field bound to
-a page that is never extracted fails at config load rather than silently
-returning a wrong answer.
+**Dates are explicit calendar dates.** Open-ended expressions - "till present",
+"with immediate effect" - are out of scope; `normalize_date` returns None
+rather than inventing a boundary.
 
-**Temperature is 0** so the same pages yield the same figures.
+**The reference date is fixed at 2024-01-01,** not today, so results stay
+stable over time.
 
-**Both decisions are document-specific.** The parser verdict, page citations,
-unit conventions and the two-fiscal-year structure are all particular to this
+**The document does not identify a revenue stream funding the Future Energy
+Fund,** and the answer says so. Government revenue is not earmarked to
+particular funds; naming one would be wrong however fluent.
+
+**Structured output uses JSON mode rather than tool-calling.** Over a long
+generation the tool-call wrapper drifts from the format Groq's parser accepts,
+and the request is rejected even when the content is correct. JSON mode also
+works across model families where tool-calling support varies.
+
+**Temperature is 0** throughout, so the same input yields the same output.
+
+**Everything is document-specific.** The parser verdict, page citations, unit
+conventions and the two-fiscal-year structure are particular to this
 publication. Re-run the notebooks for any new source.
+
+## Model and provider
+
+`llama-3.1-8b-instant` on Groq, used by every part. Constraint: free tier, no
+card - GPT-4 and Claude are excluded on cost, not merit.
+
+| | Ollama (local) | Groq | Gemini |
+|---|---|---|---|
+| Disk / RAM | 2.0-5.2 GB / 2.5-5.6 GB | none | none |
+| Rate limit | **none** | 100k tokens/day, 6k/min | tight free tier |
+| Correct value | **No** - returned 28400000000.0 | Yes | - |
+
+Neither free hosted tier supports sustained development. Groq's daily allowance
+was exhausted in one session of prompt iteration: an extraction call is ~3.2k
+tokens and a supervisor query ~7k. Local models have no limit but fold the unit
+into the value, failing silently.
+
+Groq was chosen because a hard failure is recoverable where a wrong number is
+not, but this is a project constraint rather than a clean win.
 
 ## Known limitations
 
 - **pypdf reads table content, not table structure.** `28.38` arrives on the
-  right line but carries no marker placing it in the *Revised FY2023* column; the
-  prompt binds it via the header. No fallback parser helps.
+  right line but carries no marker placing it in the *Revised FY2023* column;
+  the prompt binds it via the header. No fallback parser helps.
 - **Chart values are drawn as shapes, not stored as data,** so no parser or OCR
   recovers them. Read the corresponding table instead.
-- **Prompt wording is load-bearing.** Small rewordings changed which taxes were
-  returned, reproducibly at temperature 0.
-  reproducibly at temperature 0.
+- **One citation in Part 3 is unverifiable.** The revenue agent reports NIRC at
+  $23.5 billion citing page 13, but quotes page 15's wording. Both pages state
+  the figure, and the agent blended them. The value is right; the citation
+  cannot be checked, and the traceability check catches it. A prompt fix was
+  attempted and did not work.
+- **Two agents make routing hard to distinguish from luck.** With an obviously
+  two-part query, a coin flip is defensible about half the time. The
+  supervisor's stated reasoning is the only evidence of judgement, which is why
+  it is a required field rather than optional.
+- **Synthesis cannot check itself.** It sees findings rather than the document,
+  so a wrong inference drawn from two correct findings would pass every check.
+- **Page scoping does work a real system would need retrieval for.** At 37
+  pages the page holding each answer is known, so retrieval is solved by the
+  requirement rather than by the system.
+
+## Layout
+
+```
+config.yml                     # pdf url, page bindings, model, agent pages
+.env                           # GROQ_API_KEY (gitignored)
+prompts/                       # every prompt, edited without touching Python
+evaluation/
+  expected.yaml                # known-correct values for parts 1 and 2
+  demo_queries.yaml            # part 3 queries and expected routing
+src/
+  config.py                    # config.yml + .env
+  llm.py                       # get_chat_model(provider, model)
+  evaluation.py                # scoring for parts 1 and 2
+  ingestion/                   # download and parse the PDF
+  extraction/                  # part 1 fields, part 2 dates
+  tools/                       # date tools, MCP server and client
+  agents/                      # part 3 specialists and supervisor
+  graph/                       # part 3 state, workflow, trace, scoring
+notebooks/                     # evidence for each decision
+tests/                         # 173 tests; model stubbed, no network
+```
