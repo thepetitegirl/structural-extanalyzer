@@ -1,11 +1,23 @@
-"""Date normalisation and classification, exposed as LangChain tools.
+"""Part 2: date normalisation and classification, as LangChain tools.
 
-Both are deterministic Python. The model decides *when* to call them and on what
-text; it never does the date arithmetic itself, which is the point - a model
-asked to compare dates can get it wrong, and a comparison operator cannot.
+**This file holds the implementation.** The parsing and comparison logic lives
+here and nowhere else. `mcp_server.py` exposes these same functions over the
+MCP protocol without reimplementing them, so there is one behaviour and two
+ways to reach it:
 
-The reference date is a parameter rather than today's date. The requirement
-fixes it at 2024-01-01, so 2024-02-16 must classify as upcoming even though that
+    dates.normalize_dates_mcp  -> mcp_client -> mcp_server -> normalize_date
+    dates.normalize_dates                                  -> normalize_date
+
+The first is the path the pipeline uses; the second is the fallback when the
+server cannot be started. Both end here.
+
+Both tools are deterministic Python. The model decides *when* to call them and
+on what text; it never does the date arithmetic itself, which is the point - a
+model asked to compare dates can get it wrong, and a comparison operator
+cannot.
+
+The reference date is a parameter rather than today's date, fixed at
+2024-01-01, so 2024-02-16 must classify as upcoming even though that
 date has since passed.
 """
 
@@ -32,10 +44,10 @@ DATE_FORMATS = (
 # Matches a date inside a longer sentence, e.g.
 # "Distributed on Budget Day: 16 February 2024".
 DATE_PATTERNS = (
-    r"\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}",
-    r"[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}",
-    r"\d{4}-\d{2}-\d{2}",
-    r"\d{1,2}/\d{1,2}/\d{4}",
+    r"\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}", #e.g. 16 February 2024
+    r"[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}", #e.g. February 16, 2024
+    r"\d{4}-\d{2}-\d{2}", #e.g. 2024-02-16
+    r"\d{1,2}/\d{1,2}/\d{4}", #e.g. 6/02/2024
 )
 
 
@@ -112,7 +124,7 @@ def classify_date(iso_date: str, reference: str = "2024-01-01") -> DateStatus:
     Ongoing if it is the reference date itself - a period that is currently
     active rather than past or future.
 
-    The reference defaults to 2024-01-01 as the requirement specifies. It is a
+    The reference defaults to 2024-01-01 as specified. It is a
     parameter, not today's date, so results stay stable over time.
     """
     try:

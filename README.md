@@ -82,7 +82,7 @@ values into typed fields - it does not compute or recall.
 uv sync
 cp .env.example .env          # add GROQ_API_KEY (free, no card)
 
-uv run pytest                 # 185 tests, no key or network needed
+uv run pytest                 # 189 tests, no key or network needed
 uv run ruff check .
 
 # Part 1 - extraction
@@ -106,7 +106,7 @@ Notebooks carry the evidence for each decision:
 |---|---|
 | `00_parser_comparison.ipynb` | Why pypdf, measured against PyMuPDF and pdfplumber |
 | `01_value_exploration.ipynb` | What the correct answers are, derived from the document |
-| `02_extraction.ipynb` | Model selection and two prompt versions, scored |
+| `02_extraction.ipynb` | Model selection and the prompt's evolution, scored |
 | `03_dates.ipynb` | MCP server, normalisation, classification with a check |
 | `04_supervisor.ipynb` | The graph, seven demo queries, and the decision trace |
 
@@ -128,8 +128,8 @@ Two of the five come off table rows, which is a core criterion in choosing the m
 
 Measured in [`notebooks/00_parser_comparison.ipynb`](notebooks/00_parser_comparison.ipynb).
 
-**The parsing unit is the page.** The requirements cite pages - "page 5", "page
-20" - so pages are the natural unit, and `extract_pages()` returns only those
+**The parsing unit is the page.** Each target field is identified by the page
+it appears on - "page 5", "page 20" - so pages are the natural unit, and `extract_pages()` returns only those
 requested, each prefixed with a `--- page N ---` marker. Those markers are what
 make the page binding enforceable: the prompt can say PAGE 5 ONLY because the
 model can see where page 5 ends.
@@ -186,9 +186,9 @@ rather than through message history.
 
 The first prompt got three of five fields right. It named the correct page for
 every field and still read the wrong one twice, because it treated the page
-citations as preferences rather than constraints. Both versions are kept
-(`prompts/extraction.yaml` and `extraction_v1.yaml`) and run side by side in
-the notebook.
+citations as preferences rather than constraints. Only the final prompt
+(`prompts/extraction.yaml`) is shipped; the first version's recorded result
+and the three changes that fixed it are documented in the notebook.
 
 Wording proved load-bearing: changing "read both pages to the end" to "read
 those pages to the end" changed which taxes were returned, reproducibly at
@@ -203,8 +203,8 @@ temperature 0.
 
 The split is deliberate: the model finds dates in prose because phrasing
 varies, and a tool parses them because that has one right answer. The
-requirement asks for LLM *reasoning* on the classification, so the model
-decides and `classify_date` verifies afterwards - detection rather than
+the classification is reached by reasoning rather than by comparison, so the
+model decides and `classify_date` verifies afterwards - detection rather than
 prevention, since prevention would mean not asking the model at all.
 
 `src/tools/mcp_server.py` exposes both tools over stdio and is what the
@@ -212,11 +212,21 @@ pipeline uses. The `@tool` decorators remain as an automatic fallback; both
 share one implementation, so the server is a transport rather than a second
 copy.
 
+**The model is assumed to find the dates.** Both are stated plainly on their
+cited pages - "Distributed on Budget Day: 16 February 2024" and "Estate Duty
+does not apply to a person who dies after 15 February 2008" - so locating them
+is not the hard part, and no fallback search runs if the model misses one.
+
+What happens if it does: the field is required by the schema, so a missing date
+fails validation rather than passing as empty. A date the model finds but
+`normalize_date` cannot parse returns None, and that date is reported as skipped
+rather than classified. Neither case is silent, but neither is recovered from
+either.
+
 ## Part 3: multi-agent supervisor
 
 Agents route unconditionally back to the supervisor, which is the only node
-that decides. A fixed chain would have no decision to trace, and the trace is
-what the requirement asks for.
+that decides. A fixed chain would have no decision to trace, and the trace is the point.
 
 **Seven demo queries, seven correct routes** - single-agent both ways, two
 agents collaborating, and two queries declined without invoking either.
@@ -284,12 +294,29 @@ choice, so no single target year is correct for all five fields.
 **"Latest Actual Fiscal Position" is read as the latest available figure** —
 the Revised FY2023 deficit, -3.57. Table 1.1's strictly *Actual* column is
 FY2022 (1.72, a surplus); that reading would break with every other field,
-which the spec labels 2024 and the cited pages state as FY2023. The rejected
+labelled 2024 while the cited pages state FY2023. The rejected
 alternative is noted here rather than silently dropped.
 
 **Dates are explicit calendar dates.** Open-ended expressions - "till present",
 "with immediate effect" - are out of scope; `normalize_date` returns None
 rather than inventing a boundary.
+
+**Dates are written in full.** The document spells them out - "16 February
+2024" - as a government publication does, so that is the format the tool is
+built for. Three further shapes are accepted as cheap insurance rather than
+because the document needs them:
+
+| Shape | Example |
+|---|---|
+| Day month year | 16 February 2024 |
+| Month day, year | February 16, 2024 |
+| ISO | 2024-02-16 |
+| Slashed, day first | 16/02/2024 |
+
+Abbreviated months ("16 Feb 2024") parse. Ordinals ("16th February 2024"), a
+year or month alone, and non-English months do not. Slashed dates are read day
+first, so a US-style 02/16/2024 would be misread rather than rejected - a
+reason to keep the full written form as the assumption rather than a fallback.
 
 **The reference date is fixed at 2024-01-01,** not today, so results stay
 stable over time.
@@ -347,8 +374,25 @@ not, but this is a project constraint rather than a clean win.
 - **Synthesis cannot check itself.** It sees findings rather than the document,
   so a wrong inference drawn from two correct findings would pass every check.
 - **Page scoping does work a real system would need retrieval for.** At 37
-  pages the page holding each answer is known, so retrieval is solved by the
-  requirement rather than by the system.
+  pages the page holding each answer is known, so retrieval is solved by the page
+  citations rather than by the system.
+- **The schemas name their fields, so they are specific to one document.**
+  `ExtractionResult` names five fields and `DocumentDates` names two, with
+  descriptions saying where each lives in this publication. That is what makes
+  absence detectable - a missing field fails validation rather than passing as
+  a short list - and the descriptions carry into the prompt, so they do work
+  rather than document. A different source would need the classes rewritten
+  rather than reconfigured. Building them at run time from configuration would
+  generalise this, at the cost of static typing on the result and of validation
+  that can name what is missing.
+- **Nothing is persisted between runs, which would not hold at scale.** The
+  document is cached after its first download, but page text is re-extracted
+  each run and no result is stored. That is affordable here - extraction takes
+  75-300 ms against LLM calls of 1-7 seconds - and a cache would cost more in
+  invalidation logic than it saves. Over many documents or repeated queries the
+  balance inverts, and a database would be worth adding for extraction results,
+  traces, and an index over documents. A vector store would only become
+  necessary once the page holding an answer is no longer known in advance.
 
 ## Layout
 
@@ -357,7 +401,6 @@ config.yml                     # pdf url, page bindings, model, agent pages
 .env                           # GROQ_API_KEY (gitignored; see .env.example)
 prompts/                       # every prompt, edited without touching Python
   extraction.yaml              #   part 1, the version in use
-  extraction_v1.yaml           #   part 1, first attempt - kept for comparison
   dates.yaml                   #   part 2: locate dates on pp.1, 36
   date_reasoning.yaml          #   part 2: classify vs the fixed reference
   supervisor.yaml              #   part 3: routing, reasoning before choice
@@ -395,5 +438,5 @@ src/
     workflow.py                # build_graph(), run_query(), stream_trace()
     evaluation.py              # score_part3() and the four checks
 notebooks/                     # evidence for each decision (table above)
-tests/                         # 185 tests; model stubbed, no network
+tests/                         # 189 tests; model stubbed, no network
 ```

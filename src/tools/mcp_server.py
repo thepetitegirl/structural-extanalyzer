@@ -1,11 +1,16 @@
-"""Local MCP server exposing the date tools.
+"""Part 2: local MCP server exposing the date tools.
 
 Runs over stdio: a client launches this as a subprocess and they exchange
-JSON-RPC on stdin/stdout. Nothing is networked and nothing is deployed - the
-server exists only for the lifetime of the client that started it.
+JSON-RPC on stdin (its input) and stdout (its output). Nothing is networked and
+nothing is deployed - the server exists only for the lifetime of the client
+that started it.
 
-The tool logic is imported from date_tool.py rather than reimplemented, so this
-module is a transport and the existing unit tests still cover the behaviour.
+**This module is transport, not logic.** Each tool below is a one-line wrapper
+around the real implementation in date_tool.py. Nothing is reimplemented here,
+so the unit tests on date_tool.py still cover the behaviour this server serves.
+
+Because stdout carries the protocol, nothing here may print: stray output would
+corrupt the message stream the client is reading.
 
 Run directly to serve on stdio:
 

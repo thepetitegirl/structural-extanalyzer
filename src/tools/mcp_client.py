@@ -1,11 +1,21 @@
-"""Client for the local MCP date server.
+"""Part 2: client for the local MCP date server.
 
 Launches `src.tools.mcp_server` as a subprocess and calls its tools over stdio.
-This is the path the requirement asks for: the tool runs in a separate process
+This is the path the design calls for: the tool runs in a separate process
 and is reached over the protocol, rather than being called as a Python
 function.
 
-The `@tool` decorators in date_tool.py remain available and are what the unit
+**This module owns the awkward part** - starting the process, exchanging
+JSON-RPC over the pipes, and unwrapping the replies - so callers get back a
+plain list of ISO date strings and never touch the protocol themselves.
+
+Everything here is async because the MCP SDK's client side is async-only
+(`stdio_client` and `ClientSession` are both async context managers). It is not
+async for concurrency: the dates are normalised one after another in a single
+session. Synchronous callers bridge the gap with `asyncio.run`, as
+`dates.main` does.
+
+The `@tool` decorators in date_tool.py remain available as a fallback and are what the unit
 tests exercise directly. Both reach the same implementation - only the
 transport differs.
 """

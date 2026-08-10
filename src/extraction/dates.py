@@ -1,13 +1,20 @@
-"""Finding dates in the document, then normalising and classifying them.
+"""Part 2, step 1: locating dates in the document and normalising them to ISO.
 
-The work is split deliberately:
+Responsibilities are divided by the nature of each task. The model locates each
+date and quotes it as written, since a date may be phrased in several ways and
+recognising one in prose requires judgement. `normalize_date` then parses that
+text into ISO format, which is deterministic and therefore belongs in a tool.
 
-  - the model FINDS dates and quotes them as written;
-  - tools NORMALISE and CLASSIFY them.
+Classification is step 2 and lives in `date_reasoning.py`. It is performed by
+the LLM rather than by a tool: reasoning is the point, so
+`classify_date` verifies the model's conclusion afterwards rather than
+supplying it.
 
-Date arithmetic is deterministic, so a tool does it. Asking a model to compare
-dates invites a plausible wrong answer, and there is no way to tell from the
-output that it guessed.
+**Date discovery is assumed to succeed.** Each required date is stated
+explicitly on its cited page, and no secondary method is attempted if the model
+does not return one. There is no pattern match, retry, or alternative model.
+Failures are surfaced rather than absorbed: an absent date fails schema
+validation, and a date `normalize_date` cannot parse is reported as skipped.
 """
 
 from __future__ import annotations
@@ -25,8 +32,6 @@ from src.ingestion.parser import extract_pages
 from src.llm import get_chat_model
 from src.tools.date_tool import normalize_date
 
-REFERENCE_DATE = "2024-01-01"
-
 
 class DateFinding(BaseModel):
     """A date located in the document, recorded as the document writes it."""
@@ -42,7 +47,24 @@ class DateFinding(BaseModel):
 
 
 class DocumentDates(BaseModel):
-    """The dates required from the document."""
+    """The dates to be extracted, named individually.
+
+    **This schema is specific to one document.** Both the field names and their
+    descriptions describe where these two dates live in this publication, and a
+    different source would need the class rewritten rather than reconfigured.
+
+    Named fields are chosen over a generic `list[DateFinding]` because they make
+    absence detectable: if the model returns only one date, validation fails
+    here. A list would accept whatever it found, and a missing date would look
+    like a short list rather than an error. The descriptions also carry into the
+    prompt, so "from the title page" is doing work rather than documenting.
+
+    The alternative - building the schema at run time from configuration -
+    would generalise it, at the cost of static typing on the result and of
+    validation that can name what is missing. For a fixed set of dates that
+    trade is not worth making, but it is the change a second document would
+    require.
+    """
 
     distribution: DateFinding = Field(
         description="The date the document was distributed, from the title page."
@@ -52,31 +74,52 @@ class DocumentDates(BaseModel):
     )
 
 
-async def normalize_dates_mcp(found: DocumentDates) -> list[str | None]:
-    """Normalise via the local MCP server rather than an in-process call.
+def _findings(found: DocumentDates) -> list[DateFinding]:
+    """Each date in the order the schema declares it.
 
-    Same result as `normalize_dates`; the tool runs in a subprocess and is
-    reached over the protocol. This is the path the requirement asks for.
+    Read from the schema rather than named here, so adding a date means
+    changing `DocumentDates` alone rather than every function that walks it.
+    """
+    return [getattr(found, name) for name in DocumentDates.model_fields]
+
+
+async def normalize_dates_mcp(found: DocumentDates) -> list[str | None]:
+    """Normalise the found dates. **Primary path: over MCP.**
+
+    Sends each date's written form to the MCP server, which runs as a
+    subprocess and is reached over the protocol rather than called as a Python
+    function. `normalize_dates` below is the same operation without the
+    protocol, kept as the fallback; both end at `normalize_date` in
+    date_tool.py, so the results are identical and only the route differs.
+
+    Async because the MCP client is async-only - see mcp_client.py. Callers in
+    synchronous code wrap this in `asyncio.run`.
     """
     from src.tools.mcp_client import normalize_dates_via_mcp
 
     return await normalize_dates_via_mcp(
-        [finding.date_as_written for finding in (found.distribution, found.estate_duty)]
+        [finding.date_as_written for finding in _findings(found)]
     )
 
 
 def normalize_dates(found: DocumentDates) -> list[str | None]:
-    """Convert each found date to ISO format.
+    """Convert each found date to ISO format. **Fallback path: in-process.**
 
-    This is the output of step 1: a list of normalised dates, in the order the
-    document presents them. Classification is a separate step, done by an LLM
-    reasoning over this list.
+    Calls `normalize_date` directly instead of going through the MCP server,
+    for when the subprocess cannot be started - `main` below falls back to this
+    and reports which route it used. The result is the same as
+    `normalize_dates_mcp`; this one needs no subprocess and is therefore
+    synchronous.
+
+    Either way this is the output of step 1: a list of normalised dates, in the
+    order the document presents them. Classification is a separate step, done
+    by an LLM reasoning over this list.
 
     A date the tool cannot parse yields None rather than a fabricated value.
     """
     return [
         normalize_date.invoke({"text": finding.date_as_written})
-        for finding in (found.distribution, found.estate_duty)
+        for finding in _findings(found)
     ]
 
 
@@ -92,48 +135,49 @@ def normalized_with_context(found: DocumentDates) -> list[dict]:
             "normalized_date": normalize_date.invoke({"text": finding.date_as_written}),
             "page": finding.page,
         }
-        for finding in (found.distribution, found.estate_duty)
+        for finding in _findings(found)
     ]
 
 
-def find_dates(
-    pdf_path: Path | str, pages: list[int], model=None, config=None
-) -> DocumentDates:
-    """Locate the required dates on the given pages."""
+def find_dates(pdf_path: Path | str, model=None, config=None) -> DocumentDates:
+    """Locate each date on the page config binds it to.
+
+    Pages come from the `date_pages` map by name, so a date is never read from
+    whichever page happens to sit at a given position in a list.
+    """
     if config is None:
         config = load_config()
 
     if model is None:
         model = get_chat_model(config)
 
-    page_text = extract_pages(pdf_path, pages)
-    chain = load_prompt("dates") | model.with_structured_output(DocumentDates)
+    page_text = extract_pages(pdf_path, config.date_page_numbers)
+    chain = load_prompt("dates") | model.with_structured_output(DocumentDates) #match schema
 
-    return chain.invoke(
-        {
-            "page_text": page_text,
-            "page_distribution": str(pages[0]),
-            "page_estate_duty": str(pages[-1]),
-        }
-    )
+    # One prompt variable per date, named for the schema field it binds.
+    pages = {
+        f"page_{name}": str(config.page_for_date(name))
+        for name in DocumentDates.model_fields
+    }
+
+    return chain.invoke({"page_text": page_text, **pages})
 
 
 def main() -> None:
     """Find the document's dates and normalise them; print the list.
 
-    Normalisation goes through the local MCP server, which is the path the
-    requirement asks for. If the server cannot be reached, the same tool is
-    called in-process instead - the decorator fallback the requirement allows.
+    Normalisation goes through the local MCP server. If the server cannot be
+    reached, the same tool is called in-process instead.
     """
     config = load_config()
 
     pdf_path = ensure_pdf(config.pdf_url)
-    found = find_dates(pdf_path, config.date_pages, config=config)
+    found = find_dates(pdf_path, config=config)
 
-    try:
+    try: #MCP
         normalised = asyncio.run(normalize_dates_mcp(found))
         route = "local MCP server (stdio)"
-    except Exception as exc:
+    except Exception as exc: #falls back to tool
         normalised = normalize_dates(found)
         route = f"in-process @tool - MCP unavailable: {exc}"
 
