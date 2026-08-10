@@ -1,4 +1,4 @@
-"""Configuration loading.
+"""Configuration loading, shared by all three parts.
 
 Non-secret settings live in `config.yml` and are committed. Credentials live in
 `.env` and are read from the environment, never from the YAML.
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -16,6 +17,11 @@ from dotenv import load_dotenv
 DEFAULT_CONFIG_PATH = Path("config.yml")
 
 REQUIRED_KEYS = ("pdf_url", "pages", "provider", "model")
+
+# Part 2's reference date, used when config.yml does not name one. The date
+# tools carry the same literal as an inert signature default; this is the value
+# the application actually classifies against.
+DEFAULT_REFERENCE_DATE = "2024-01-01"
 
 # Providers that authenticate with an API key, and the variable holding it.
 # A provider absent from this map needs no credential, so api_key() returns
@@ -44,7 +50,10 @@ class Config:
     # prompt so a page is defined here and nowhere else.
     field_pages: dict[str, int | list[int]] = field(default_factory=dict)
     # Part 2: pages holding the dates to normalise and classify.
-    date_pages: list[int] = field(default_factory=list)
+    date_pages: dict[str, int] = field(default_factory=dict)
+    # Part 2: the date every extracted date is classified against. Fixed rather
+    # than today's date, so a 2024 date stays Upcoming as the real date recedes.
+    reference_date: str = DEFAULT_REFERENCE_DATE
     # Part 3: the pages each specialist agent may read. Deliberately narrow -
     # an agent able to read the whole document will find a plausible figure on
     # a page it was not asked about, and nothing in the number says so.
@@ -66,6 +75,25 @@ class Config:
                 f"Known agents: {', '.join(sorted(self.agent_pages)) or 'none'}."
             )
         return pages
+
+    def page_for_date(self, name: str) -> int:
+        """Part 2: the page a named date must be read from.
+
+        Bound by name rather than by position in a list, so adding a date
+        cannot silently shift which page another one is read from.
+        """
+        page = self.date_pages.get(name)
+        if page is None:
+            raise ConfigError(
+                f"No page configured for date {name!r}. "
+                f"Known dates: {', '.join(sorted(self.date_pages)) or 'none'}."
+            )
+        return page
+
+    @property
+    def date_page_numbers(self) -> list[int]:
+        """Every page a date is bound to, for extraction."""
+        return sorted(set(self.date_pages.values()))
 
     def pages_for_field(self, field_name: str) -> str:
         """Part 1: a field's bound page(s), rendered for the prompt.
@@ -148,6 +176,17 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
     if max_turns < 2:
         raise ConfigError(f"max_turns must be at least 2, got {max_turns}.")
 
+    # The reference is compared against ISO dates, so a value the tools cannot
+    # parse would surface as a ValueError mid-classification instead of here.
+    reference_date = str(data.get("reference_date", DEFAULT_REFERENCE_DATE))
+    try:
+        date.fromisoformat(reference_date)
+    except ValueError as exc:
+        raise ConfigError(
+            f"reference_date must be an ISO date (YYYY-MM-DD), got "
+            f"{reference_date!r}."
+        ) from exc
+
     return Config(
         pdf_url=data["pdf_url"],
         pages=pages,
@@ -156,7 +195,8 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
         temperature=float(data.get("temperature", 0.0)),
         max_retries=int(data.get("max_retries", 6)),
         field_pages=field_pages,
-        date_pages=list(data.get("date_pages", [])),
+        date_pages=dict(data.get("date_pages") or {}),
+        reference_date=reference_date,
         agent_pages={k: list(v) for k, v in agent_pages.items()},
         max_turns=max_turns,
     )

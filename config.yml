@@ -5,7 +5,7 @@
 # gitignored, so a fresh clone needs only this config.
 pdf_url: https://isomer-user-content.by.gov.sg/153/20f8e128-58fa-44ea-a109-f2dec3995271/fy2024_analysis_of_revenue_and_expenditure.pdf
 
-# Pages holding the target fields, 1-indexed as cited in the requirements.
+# Pages holding the target fields, 1-indexed as the document numbers them.
 # Restricted deliberately: the same term carries different values elsewhere in
 # the document (Corporate Income Tax appears on pp. 5, 8, 9, 16, 26, 27, 37),
 # so narrowing the input removes the ambiguity.
@@ -25,7 +25,14 @@ field_pages:
 # Part 2: pages holding the dates to normalise.
 # Page 1 is the title page (distribution date); page 36 is the glossary entry
 # for Assets Taxes, which names the Estate Duty cut-off.
-date_pages: [1, 36]
+date_pages:
+  distribution: 1     # title page
+  estate_duty: 36     # glossary entry for Assets Taxes
+
+# Part 2: the date every extracted date is classified against. Fixed rather than
+# today's date, so 2024-02-16 stays Upcoming even though it has since passed -
+# results do not drift as the real date moves.
+reference_date: "2024-01-01"
 
 # Part 3: the pages each specialist agent may read.
 #
