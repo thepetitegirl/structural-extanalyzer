@@ -29,6 +29,20 @@ field_pages:
 # for Assets Taxes, which names the Estate Duty cut-off.
 date_pages: [1, 36]
 
+# Part 3: the pages each specialist agent may read.
+#
+# Narrow by design, for the same reason as field_pages: an agent able to read
+# the whole document will find a plausible figure on a page it was not asked
+# about. Page 13 is scoped to revenue only - it carries both the revenue total
+# and the top-ups sentence, so keeping it out of the expenditure set means
+# neither agent can answer the combined query alone.
+agent_pages:
+  revenue: [9, 13, 15]        # revenue breakdown, FY2024 narrative, NIRC
+  expenditure: [16, 18, 20]   # Table 2.1, top-ups prose, Table 2.4
+
+# Hard cap on supervisor turns, so the graph provably terminates.
+max_turns: 4
+
 # Groq only - see notebooks/02_extraction.ipynb for why other providers were rejected.
 provider: groq
 model: llama-3.1-8b-instant

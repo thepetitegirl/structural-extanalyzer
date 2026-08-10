@@ -8,6 +8,7 @@ dependencies = [
     "langchain>=1.3.14",
     "langchain-groq>=1.1.3",
     "langchain-mcp-adapters>=0.3.2",
+    "langgraph>=1.2.10",
     "mcp>=1.29.0",
     "pydantic>=2.13.4",
     "pypdf>=6.15.0",
@@ -31,4 +32,38 @@ dev = [
     "pymupdf>=1.28.2",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.2",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Notebooks are evidence of a run, not shipped code. Their cells are written to
+# be read in sequence, so import placement and unused loop variables there are
+# not defects worth failing a lint on.
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+# E,W: pycodestyle. F: pyflakes. I: import sorting. N: naming.
+# D: docstrings - every public function has one, per CLAUDE.md.
+# UP: pyupgrade. B: bugbear. SIM: simplify.
+select = ["E", "W", "F", "I", "N", "D", "UP", "B", "SIM"]
+# SIM117 would combine the MCP client's nested async context managers, but the
+# combined form reads worse for a session opened inside a transport.
+ignore-init-module-imports = true
+ignore = [
+    "D100",  # module docstrings are present where they earn their place
+    "D104",  # __init__.py files are namespace markers, not documentation
+    "D203",  # incompatible with D211, which ruff prefers
+    "D213",  # incompatible with D212, which ruff prefers
+    "D401",  # docstrings describe what a thing is, not only what it does
+    "SIM117",  # nested async context managers read better than a combined one
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests document behaviour in their own docstrings; the private-name rule
+# fires on fixtures and helpers where a leading underscore is idiomatic.
+"tests/*" = ["D103", "D107"]
+# Check functions are documented as the question they answer, so their
+# docstrings end in a question mark rather than a period.
+"src/graph/evaluation.py" = ["D400"]

@@ -99,6 +99,87 @@ def test_temperature_read_from_yaml(tmp_path):
     assert load_config(path).temperature == 0.7
 
 
+def _config_with(tmp_path, **overrides):
+    """Write a config file with the given keys merged over a valid base."""
+    data = {
+        "pdf_path": "data/example.pdf",
+        "pages": [5, 6, 8, 20],
+        "provider": "groq",
+        "model": "llama-3.1-8b-instant",
+    }
+    data.update(overrides)
+    path = tmp_path / "config.yml"
+    path.write_text(yaml.safe_dump(data))
+    return path
+
+
+def test_agent_pages_loaded(tmp_path):
+    """Each agent's page set is exposed for injection into its prompt."""
+    path = _config_with(
+        tmp_path, agent_pages={"revenue": [9, 13, 15], "expenditure": [16, 18, 20]}
+    )
+
+    assert load_config(path).agent_pages["revenue"] == [9, 13, 15]
+
+
+def test_pages_for_returns_an_agents_pages(tmp_path):
+    """pages_for() is the accessor agents use, mirroring page_for()."""
+    path = _config_with(
+        tmp_path, agent_pages={"revenue": [9, 13, 15], "expenditure": [16, 18, 20]}
+    )
+
+    assert load_config(path).pages_for("expenditure") == [16, 18, 20]
+
+
+def test_pages_for_unknown_agent_raises(tmp_path):
+    """An agent with no configured pages is a configuration error."""
+    path = _config_with(tmp_path, agent_pages={"revenue": [9]})
+
+    with pytest.raises(ConfigError, match="expenditure"):
+        load_config(path).pages_for("expenditure")
+
+
+def test_agent_pages_need_not_appear_in_pages(tmp_path):
+    """Agent pages are independent of the Part 1 extraction set.
+
+    `pages` is what Part 1 reads; the agents legitimately read elsewhere, so
+    validating one against the other would reject a correct config.
+    """
+    path = _config_with(
+        tmp_path,
+        pages=[5, 6, 8, 20],
+        agent_pages={"revenue": [9, 13, 15], "expenditure": [16, 18, 20]},
+    )
+
+    assert load_config(path).agent_pages["revenue"] == [9, 13, 15]
+
+
+def test_empty_agent_page_set_raises(tmp_path):
+    """An agent with no pages could never answer, so it is caught at load."""
+    path = _config_with(tmp_path, agent_pages={"revenue": [], "expenditure": [16]})
+
+    with pytest.raises(ConfigError, match="revenue"):
+        load_config(path)
+
+
+def test_non_positive_agent_page_raises(tmp_path):
+    """Pages are 1-indexed, so zero or negative is invalid."""
+    path = _config_with(tmp_path, agent_pages={"revenue": [0], "expenditure": [16]})
+
+    with pytest.raises(ConfigError, match="revenue"):
+        load_config(path)
+
+
+def test_max_turns_defaults(tmp_path):
+    """A supervisor turn cap exists even when the config omits it."""
+    assert load_config(_config_with(tmp_path)).max_turns == 4
+
+
+def test_max_turns_read_from_yaml(tmp_path):
+    """An explicit cap is honoured."""
+    assert load_config(_config_with(tmp_path, max_turns=2)).max_turns == 2
+
+
 def test_missing_file_raises(tmp_path):
     """A missing config file raises ConfigError, not FileNotFoundError."""
     with pytest.raises(ConfigError, match="not found"):

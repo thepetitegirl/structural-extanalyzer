@@ -45,6 +45,22 @@ class Config:
     field_pages: dict[str, int | list[int]] = field(default_factory=dict)
     # Part 2: pages holding the dates to normalise and classify.
     date_pages: list[int] = field(default_factory=list)
+    # Part 3: the pages each specialist agent may read. Deliberately narrow -
+    # an agent able to read the whole document will find a plausible figure on
+    # a page it was not asked about, and nothing in the number says so.
+    agent_pages: dict[str, list[int]] = field(default_factory=dict)
+    # Part 3: hard cap on supervisor turns, so the graph provably terminates.
+    max_turns: int = 4
+
+    def pages_for(self, agent: str) -> list[int]:
+        """Return the pages an agent may read."""
+        pages = self.agent_pages.get(agent)
+        if not pages:
+            raise ConfigError(
+                f"No pages configured for agent {agent!r}. "
+                f"Known agents: {', '.join(sorted(self.agent_pages)) or 'none'}."
+            )
+        return pages
 
     def page_for(self, field_name: str) -> str:
         """Render a field's bound page(s) for use in a prompt."""
@@ -85,7 +101,9 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
 
     missing = [key for key in REQUIRED_KEYS if key not in data]
     if missing:
-        raise ConfigError(f"Config {path} is missing required key(s): {', '.join(missing)}")
+        raise ConfigError(
+            f"Config {path} is missing required key(s): {', '.join(missing)}"
+        )
 
     pages = list(data["pages"])
     field_pages = data.get("field_pages") or {}
@@ -101,6 +119,19 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
                 f"pages {pages}. Add them to `pages` or correct `field_pages`."
             )
 
+    # Agent page sets are NOT validated against `pages`: that is Part 1's
+    # extraction set, and the agents legitimately read elsewhere.
+    agent_pages = data.get("agent_pages") or {}
+    for agent, agent_page_list in agent_pages.items():
+        if not agent_page_list:
+            raise ConfigError(f"Agent {agent!r} has no pages configured.")
+        invalid = [page for page in agent_page_list if page < 1]
+        if invalid:
+            raise ConfigError(
+                f"Agent {agent!r} cites non-positive page(s) {invalid}; "
+                "pages are 1-indexed."
+            )
+
     return Config(
         pdf_path=data["pdf_path"],
         pdf_url=data.get("pdf_url"),
@@ -110,4 +141,6 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
         temperature=float(data.get("temperature", 0.0)),
         field_pages=field_pages,
         date_pages=list(data.get("date_pages", [])),
+        agent_pages={k: list(v) for k, v in agent_pages.items()},
+        max_turns=int(data.get("max_turns", 4)),
     )
