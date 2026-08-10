@@ -147,7 +147,7 @@ def check_page_discipline(trace: Trace, config) -> Check:
     for finding in trace.findings:
         agent_key = finding.agent.removesuffix("_agent")
         try:
-            allowed = set(config.pages_for(agent_key))
+            allowed = set(config.pages_for_agent(agent_key))
         except Exception:
             problems.append(f"{finding.agent}: no configured page set")
             continue
@@ -168,7 +168,7 @@ def check_page_discipline(trace: Trace, config) -> Check:
 def score_part3(
     trace: Trace, expected: dict, config, page_text: dict[int, str] | None = None
 ) -> Report:
-    """Run all four checks against one query's trace."""
+    """Part 3: run all four checks against one query's trace."""
     return Report(
         [
             check_routing(trace, expected.get("routed_to", [])),

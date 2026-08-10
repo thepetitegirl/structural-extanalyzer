@@ -14,9 +14,11 @@
 #      Fixes: fiscal position read from p.5 prose (-3.6) rather than p.8's table
 #      (-3.57), because the unscoped rule outranked the page citation.
 #
-#   3. An instruction to read cited pages to the end.
-#      Fixes: only 7 of ~13 taxes returned, stopping at the first summary
-#      sentence.
+#   3. The tax list constrained to prose on the cited pages, with no expected
+#      count given.
+#      Fixes: taxes pulled from a revenue table on an uncited page. An earlier
+#      version stated the expected number, which told the model the answer and
+#      made the count check meaningless; the page constraint alone is enough.
 
 system: |
   You extract figures from Singapore government budget documents.
@@ -110,17 +112,13 @@ human: |
      Do NOT take a similarly named row from any other page - those are
      different years in different units.
 
-     4. Every tax named in the Operating Revenue discussion.
+  4. Every tax named in the Operating Revenue discussion.
      PAGES {page_taxes} ONLY - this is the strictest constraint in this task.
-
      Other pages contain revenue TABLES listing many more taxes. Those tables
-     are NOT part of this answer. If a tax name appears only in a table on
+     are NOT part of this answer: if a tax name appears only in a table on
      another page, it does not belong in this list.
-
-     Read the prose on pages {page_taxes} and list only the taxes named there.
-     Include taxes described as rising and as falling.
-     Expect around 7 names. If you have more than 8, you have read a table from
-     an uncited page - remove those.
+     List the taxes named in the prose on those pages, whether described as
+     rising or as falling.
 
   5. The Overall Fiscal Position. PAGE {page_fiscal} ONLY.
      That page holds a table whose last row is "OVERALL FISCAL POSITION", with

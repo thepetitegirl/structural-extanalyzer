@@ -2,6 +2,17 @@
 
 Prompt text lives in `prompts/*.yaml` so it can be revised without touching
 Python. This module holds only the loading logic.
+
+Every prompt has a `system` section and a `human` section, and nothing else.
+The split matters: models weight system instructions as standing rules and the
+human message as the request, so the page bindings and conventions belong in
+`system` while the document text and the ask belong in `human`.
+
+**Every exchange is assumed to be a single turn** - one call, one answer. There
+is no `assistant` section because no prompt continues a conversation; each call
+carries everything the model needs. Where a run makes several calls, as the
+Part 3 supervisor does, each is independent and state is threaded through the
+graph rather than through message history.
 """
 
 from __future__ import annotations

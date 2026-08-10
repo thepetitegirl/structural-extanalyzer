@@ -1,52 +1,76 @@
-# structural-extanalyzer
+# Developing a multi-agent analyzer and document extractor
 
-Structured extraction from the Singapore MOF *Analysis of Revenue and
-Expenditure FY2024*, in three parts: LangChain prompting, tool calling via a
-local MCP server, and a LangGraph multi-agent supervisor.
+Extracting structured information from an unstructured document - the Singapore
+MOF *Analysis of Revenue and Expenditure FY2024* - in three parts:
+
+* Document extraction and prompting via LangChain
+* Tool calling via a local MCP server
+* Multi-agent supervisor via the LangGraph framework
 
 ## The three parts
 
 ```mermaid
-flowchart TD
-    PDF[("PDF, 37 pages<br/>downloaded from config.yml")]
+flowchart LR
+    PDF[("source data<br/>unstructured PDF")] --> PARSE["pypdf parser"]
 
-    PDF --> PARSE["pypdf extract_pages()<br/>page text with --- page N --- markers"]
-
-    subgraph P1["Part 1 - extraction"]
+    subgraph P1[" "]
         direction TB
-        P1P["prompts/extraction.yaml<br/>pages 5, 6, 8, 20"]
-        P1P --> P1L["LLM + structured output"]
+        P1T["<b>PART 1</b><br/>extraction"]
+        P1T --> P1P["prompt engineering"]
+        P1P --> P1L["LLM + schema"]
         P1L --> P1R["five fields<br/>value + unit + page + quote"]
         P1R --> P1S["score_result()"]
     end
 
-    subgraph P2["Part 2 - dates and tools"]
+    subgraph P2[" "]
         direction TB
-        P2P["prompts/dates.yaml<br/>pages 1, 36"]
-        P2P --> P2F["LLM finds dates as written"]
+        P2T["<b>PART 2</b><br/>dates and tools"]
+        P2T --> P2F["LLM finds dates as written"]
         P2F --> P2N["normalize_date<br/>via local MCP server"]
         P2N --> P2C["LLM classifies vs 2024-01-01"]
         P2C --> P2V["classify_date verifies"]
     end
 
-    subgraph P3["Part 3 - supervisor"]
+    subgraph P3[" "]
         direction TB
-        P3S{"supervisor<br/>routes each turn"}
-        P3S -->|revenue| P3R["revenue agent<br/>pages 9, 13, 15"]
-        P3S -->|expenditure| P3E["expenditure agent<br/>pages 16, 18, 20"]
+        P3T["<b>PART 3</b><br/>supervisor"]
+        P3T --> P3S{"supervisor<br/>routes each turn"}
+        P3S -->|revenue| P3R["revenue agent"]
+        P3S -->|expenditure| P3E["expenditure agent"]
         P3R -.->|finding| P3S
         P3E -.->|finding| P3S
         P3S -->|done| P3Y["synthesis + trace"]
         P3S -->|out of scope| P3D["decline"]
     end
 
-    PARSE --> P1P
-    PARSE --> P2P
-    PARSE --> P3S
+    PARSE --> P1T
+    PARSE --> P2T
+    PARSE --> P3T
 
-    CFG["config.yml<br/>pages, bindings, model"] -.-> PARSE
-    ENV[".env<br/>GROQ_API_KEY"] -.-> P1L
+    CFG["config.yml"] -.-> PARSE
+
+    classDef shared fill:#e8e8e8,stroke:#666,color:#000
+    classDef title fill:#ffffff,stroke:#333,stroke-width:2px,color:#000
+    classDef part1 fill:#dbeafe,stroke:#2563eb,color:#000
+    classDef part2 fill:#dcfce7,stroke:#16a34a,color:#000
+    classDef part3 fill:#fef3c7,stroke:#d97706,color:#000
+    classDef check fill:#fae8ff,stroke:#a21caf,color:#000
+
+    class PDF,PARSE,CFG shared
+    class P1T,P2T,P3T title
+    class P1P,P1L,P1R part1
+    class P2F,P2N,P2C part2
+    class P3S,P3R,P3E,P3Y,P3D part3
+    class P1S,P2V check
+
+    style P1 fill:#f8fbff,stroke:#2563eb
+    style P2 fill:#f7fdf9,stroke:#16a34a
+    style P3 fill:#fffdf5,stroke:#d97706
 ```
+
+Grey is shared infrastructure, blue Part 1, green Part 2, amber Part 3. The two
+purple nodes are the deterministic checks - `score_result()` compares against
+known values, `classify_date` verifies what the LLM concluded.
 
 No database and no vector store: the page holding each answer is known, so
 retrieval is already solved. The model reads the supplied text and copies
@@ -58,7 +82,7 @@ values into typed fields - it does not compute or recall.
 uv sync
 cp .env.example .env          # add GROQ_API_KEY (free, no card)
 
-uv run pytest                 # 183 tests, no key or network needed
+uv run pytest                 # 185 tests, no key or network needed
 uv run ruff check .
 
 # Part 1 - extraction
@@ -88,37 +112,77 @@ Notebooks carry the evidence for each decision:
 
 ## Part 1: extraction
 
-All five fields extract correctly from their cited pages.
+All five fields extract correctly from their cited pages. As seen below, the fields are of different nature such as floats and list of strings.
 
-| Field | Value | Unit | Page |
-|---|---|---|---|
-| Corporate Income Tax | 28.4 | billion | 5 |
-| Year-on-year change | 17.0 | % | 5 |
-| Total top-ups | 20,352 | million | 20 |
-| Taxes in Operating Revenue | 7 names | - | 5-6 |
-| Overall Fiscal Position | -3.57 | billion | 8 |
+| Field | Value | Unit | Page | Note |
+|---|---|---|---|---|
+| Corporate Income Tax | 28.4 | billion | 5 | Prose - stated in a sentence, so context disambiguates it |
+| Year-on-year change | 17.0 | % | 5 | Prose - same sentence as the amount, stated not calculated |
+| Total top-ups | 20,352 | million | 20 | **Table row** - a "Total" line under a ($ million) heading |
+| Taxes in Operating Revenue | 7 names | - | 5-6 | Prose - names spread across several paragraphs |
+| Overall Fiscal Position | -3.57 | billion | 8 | **Table row** - one figure per year column, with negative value in parentheses |
+
+Two of the five come off table rows, which is a core criterion in choosing the most appropriate parser, as shown below. 
 
 ### Parser: pypdf
 
-Measured in `00_parser_comparison.ipynb`. Three of the five fields are read
-from the table on page 8, so a figure is only useful if it stays bound to its
-label.
+Measured in [`notebooks/00_parser_comparison.ipynb`](notebooks/00_parser_comparison.ipynb).
 
-| Parser | Row integrity (p.8) | Speed (4 pp.) | Verdict |
-|---|---|---:|---|
-| **pypdf** | Pass | 450 ms | **Chosen** |
-| PyMuPDF | Fail - label separated from figures | 52 ms | Rejected |
-| pdfplumber | Pass - identical text | 823 ms | Rejected - slower, no upside |
-| Docling | - | - | Rejected - no scanned pages |
-| OCR | - | - | N/A - zero raster images |
+**The parsing unit is the page.** The requirements cite pages - "page 5", "page
+20" - so pages are the natural unit, and `extract_pages()` returns only those
+requested, each prefixed with a `--- page N ---` marker. Those markers are what
+make the page binding enforceable: the prompt can say PAGE 5 ONLY because the
+model can see where page 5 ends.
 
-PyMuPDF is usually recommended as the fastest default. That inverts here:
-speed is only a tiebreak among parsers that are already correct.
+Chunking by paragraph or token count would break that, leaving one
+undifferentiated block with no way to tell which page a figure came from.
 
-`pdfplumber.extract_tables()` returns 0 tables on page 8 - the table has no
-ruling lines and detection is line-based - so no parser yields a cell grid.
+Five parsers were considered: `pypdf`, `PyMuPDF`, `pdfplumber`, `Docling` and `OCR`. Two were ruled out on inspection as Docling's ML layout analysis solves a problem a born-digital PDF does not have, and OCR needs raster images, of which this document has none. The remaining three were measured through **row integrity** and **latency**.
+
+As seen above in extraction, since two out of five fields are obtained from table rows, it is important to ensure that row integrity is maintained so that the information can be obtained accurately.
+
+> **Row integrity** means the table row survives extraction as one line - the
+> label still attached to its figures. The Corporate Income Tax row on page 8
+> reads `Corporate Income Tax 23.07 24.26 28.38 23.0 17.0` in the document.
+
+What each parser returns for that row:
+
+| Parser | Text Output for the Corporate Income Tax row | Result |
+|---|---|:---:|
+| `pypdf` | `Corporate Income Tax 23.07 24.26 28.38 23.0 17.0` | Pass |
+| `pdfplumber` | `Corporate Income Tax 23.07 24.26 28.38 23.0 17.0` | Pass |
+| `PyMuPDF` | `Corporate Income Tax` - figures detached | **Fail** |
+
+Note: For `PyMuPDF`, the figures become detached from their label, so the model may attach them to the wrong row and return a wrong answer with no sign anything went wrong.
+
+Note 2: `pdfplumber` is the only parser with a feature called table extractor. However, it detected no tables on page 8, because detection is line-based and this table has no ruling lines. Since the other two parsers have no table extractor at all, no parser yields a cell grid here.
+
+In addition, **latency** is also considered as a secondary criterion to ensure that the information can be parsed fast to facilitate a more efficient extraction. 
+
+| Parser | Row integrity | Speed (4 pp.) | Verdict |
+|---|:---:|---:|---|
+| **pypdf** | Pass | 450 ms | **Chosen** - correct, and the faster of the two |
+| pdfplumber | Pass | 823 ms | Rejected - correct but 1.8x slower |
+| PyMuPDF | **Fail** | 52 ms | Rejected - fastest, but wrong |
+| Docling | not tested | - | Ruled out - no scanned pages |
+| OCR | not tested | - | Ruled out - zero raster images |
+
+**Correctness decides; speed only breaks ties.** Based on both criteria, `pypdf` is chosen as the parser due to its accuracy in parsing the table content and is 1.8x faster than `pdfplumber`.
+
 
 ### Prompt engineering
+
+Every prompt is a YAML file with a `system` section and a `human` section, so
+wording can be revised without touching Python. The split is deliberate: models
+weight system instructions as standing rules and the human message as the
+request, so the page bindings and conventions live in `system` while the
+document text and the ask live in `human`.
+
+**Every exchange is a single turn** - one call, one answer. No prompt continues
+a conversation, so there is no `assistant` section; each call carries
+everything the model needs. Where a run makes several calls, as the Part 3
+supervisor does, each is independent and state is threaded through the graph
+rather than through message history.
 
 The first prompt got three of five fields right. It named the correct page for
 every field and still read the wrong one twice, because it treated the page
@@ -197,6 +261,14 @@ Prose has no single correct wording, so it is not scored. Four things are:
 All plausible. They differ by year, unit and kind, and nothing in the number
 says which. Restricting the input eliminates seven wrong answers before the
 model reads anything.
+
+**The tax list counts revenue lines, not their constituents.** Pages 5-6 name
+seven taxes as Operating Revenue components. Four more appear inside the
+description of one of them - "Other Taxes, which include the Foreign Worker
+Levy, Water Conservation Tax, Land Betterment Charge, and Annual Tonnage Tax"
+(p.5) - and are not counted separately, since the document presents them as
+what Other Taxes consists of rather than as revenue lines in their own right.
+Counting them would give 11.
 
 **Each field is read from the page cited for it,** not from wherever the figure
 is most precise. Page 5 says "$28.4 billion"; page 8's table says 28.38. The
@@ -323,5 +395,5 @@ src/
     workflow.py                # build_graph(), run_query(), stream_trace()
     evaluation.py              # score_part3() and the four checks
 notebooks/                     # evidence for each decision (table above)
-tests/                         # 183 tests; model stubbed, no network
+tests/                         # 185 tests; model stubbed, no network
 ```

@@ -1,12 +1,20 @@
-"""Scoring an extraction against known-correct values.
+"""Scoring Parts 1 and 2 against known-correct values.
+
+`score_result` scores Part 1's five extracted fields; `score_dates` scores Part
+2's normalised and classified dates. Part 3 has its own scorer in
+`src/graph/evaluation.py`, because an open-ended answer is checked differently.
 
 Separate from the unit tests, which mock the model. This compares a real
 extraction against `evaluation/expected.yaml`.
 
-A value alone is not enough to score against - 28.38 and 28.03 are both
+A value alone is not enough to score Part 1 against - 28.38 and 28.03 are both
 plausible answers for Corporate Income Tax, differing only in which page they
-came from. Each check therefore verifies the page as well, so a right number
-read from the wrong page is reported as a failure rather than a pass.
+came from. Every Part 1 check therefore verifies the page as well, so a right
+number read from the wrong page is a failure rather than a pass.
+
+Part 2 is scored on value and status only. Its required output shape carries no
+page, so the page recorded in expected.yaml is there for a reader to check
+against the document, not for the scorer.
 """
 
 from __future__ import annotations
@@ -65,12 +73,12 @@ class Report:
 
 
 def expected_dates(path: Path | str = EXPECTED_PATH) -> dict:
-    """Return the Part 2 date expectations."""
+    """Part 2: the date expectations from expected.yaml."""
     return load_expected(path).get("dates", {})
 
 
 def score_dates(results: list[dict], expected: dict | None = None) -> Report:
-    """Score normalised, classified dates against the known answers.
+    """Part 2: score normalised, classified dates against the known answers.
 
     `results` is the output of date_reasoning.to_output(): one entry per date
     with original_text, normalized_date and status. Scored on those keys only:
@@ -121,7 +129,7 @@ def load_expected(path: Path | str = EXPECTED_PATH) -> dict:
 
 
 def _score_numeric(name: str, got, want: dict) -> Check:
-    """Score one numeric field on value, page, and unit."""
+    """Part 1, fields 1-3 and 5: score a numeric field on value, page and unit."""
     problems = []
 
     if abs(got.value - want["value"]) > TOLERANCE:
@@ -140,7 +148,12 @@ def _score_numeric(name: str, got, want: dict) -> Check:
 
 
 def _score_tax_list(name: str, got, want: dict) -> Check:
-    """Score the tax list on count, required members, and source pages."""
+    """Part 1, field 4: score the tax list on count, members and source pages.
+
+    A list of names cannot be compared like a figure, so it is checked three
+    ways. The maximum is the one doing real work: extra names mean a revenue
+    table on an uncited page was read.
+    """
     problems = []
 
     minimum = want.get("min_count", 1)
@@ -171,7 +184,12 @@ def _score_tax_list(name: str, got, want: dict) -> Check:
 
 
 def score_result(result, expected: dict | None = None) -> Report:
-    """Score an ExtractionResult against the known-correct values."""
+    """Part 1: score the five extracted fields against the known-correct values.
+
+    Each numeric field is checked on value, unit and page: a right number read
+    from the wrong page means the instruction was ignored, and would not
+    survive a change to the document.
+    """
     if expected is None:
         expected = load_expected()
 
