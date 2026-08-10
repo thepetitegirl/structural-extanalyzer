@@ -114,10 +114,7 @@ def classify(
         config = load_config()
 
     if model is None:
-        config.api_key()
-        model = get_chat_model(
-            config.provider, config.model, temperature=config.temperature
-        )
+        model = get_chat_model(config)
 
     # Only the normalised dates and their source text reach the model. Without
     # the document it cannot introduce a date that was never extracted. A date
@@ -143,7 +140,7 @@ def main() -> None:
     """Find, normalise, classify and verify the document's dates."""
     config = load_config()
 
-    pdf_path = ensure_pdf(config.pdf_url, config.pdf_path)
+    pdf_path = ensure_pdf(config.pdf_url)
     found = find_dates(pdf_path, config.date_pages, config=config)
     normalised = normalized_with_context(found)
 

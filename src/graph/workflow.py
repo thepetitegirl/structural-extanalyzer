@@ -163,13 +163,10 @@ def run_query(query: str, model=None, config=None, pdf_path=None) -> Trace:
         config = load_config()
 
     if model is None:
-        config.api_key()
-        model = get_chat_model(
-            config.provider, config.model, temperature=config.temperature
-        )
+        model = get_chat_model(config)
 
     if pdf_path is None:
-        pdf_path = ensure_pdf(config.pdf_url, config.pdf_path)
+        pdf_path = ensure_pdf(config.pdf_url)
 
     graph = build_graph(model, config, pdf_path)
     final = graph.invoke({"query": query})
@@ -194,13 +191,10 @@ def stream_trace(query: str, model=None, config=None, pdf_path=None):
         config = load_config()
 
     if model is None:
-        config.api_key()
-        model = get_chat_model(
-            config.provider, config.model, temperature=config.temperature
-        )
+        model = get_chat_model(config)
 
     if pdf_path is None:
-        pdf_path = ensure_pdf(config.pdf_url, config.pdf_path)
+        pdf_path = ensure_pdf(config.pdf_url)
 
     graph = build_graph(model, config, pdf_path)
 

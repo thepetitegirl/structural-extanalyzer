@@ -15,12 +15,12 @@ from dotenv import load_dotenv
 
 DEFAULT_CONFIG_PATH = Path("config.yml")
 
-REQUIRED_KEYS = ("pdf_path", "pages", "provider", "model")
+REQUIRED_KEYS = ("pdf_url", "pages", "provider", "model")
 
 # Providers that authenticate with an API key, and the variable holding it.
-# Ollama is absent because it runs locally and needs no credential.
+# A provider absent from this map needs no credential, so api_key() returns
+# None for it rather than raising.
 API_KEY_VARS = {
-    "google": "GOOGLE_API_KEY",
     "groq": "GROQ_API_KEY",
 }
 
@@ -33,13 +33,13 @@ class ConfigError(Exception):
 class Config:
     """Settings for one extraction run."""
 
-    pdf_path: str
+    pdf_url: str
     pages: list[int]
     provider: str
     model: str
     temperature: float = 0.0
-    # Source URL; the file is downloaded to pdf_path on first use.
-    pdf_url: str | None = None
+    # Retries for a rate-limited request; see config.yml for why 6.
+    max_retries: int = 6
     # Field name -> the page(s) that field must be read from. Injected into the
     # prompt so a page is defined here and nowhere else.
     field_pages: dict[str, int | list[int]] = field(default_factory=dict)
@@ -52,8 +52,13 @@ class Config:
     # Part 3: hard cap on supervisor turns, so the graph provably terminates.
     max_turns: int = 4
 
-    def pages_for(self, agent: str) -> list[int]:
-        """Return the pages an agent may read."""
+    def pages_for_agent(self, agent: str) -> list[int]:
+        """Part 3: the pages a specialist agent may read.
+
+        Returns the page numbers themselves, since the agent passes them to
+        `extract_pages`. Compare `pages_for_field`, which renders pages for a
+        prompt instead.
+        """
         pages = self.agent_pages.get(agent)
         if not pages:
             raise ConfigError(
@@ -62,8 +67,13 @@ class Config:
             )
         return pages
 
-    def page_for(self, field_name: str) -> str:
-        """Render a field's bound page(s) for use in a prompt."""
+    def pages_for_field(self, field_name: str) -> str:
+        """Part 1: a field's bound page(s), rendered for the prompt.
+
+        Returns a string rather than numbers - "5", or "5 AND 6" - because it
+        is injected directly into the extraction prompt as the page the field
+        must be read from.
+        """
         pages = self.field_pages.get(field_name)
         if pages is None:
             raise ConfigError(f"No page configured for field {field_name!r}.")
@@ -139,12 +149,12 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
         raise ConfigError(f"max_turns must be at least 2, got {max_turns}.")
 
     return Config(
-        pdf_path=data["pdf_path"],
-        pdf_url=data.get("pdf_url"),
+        pdf_url=data["pdf_url"],
         pages=pages,
         provider=data["provider"],
         model=data["model"],
         temperature=float(data.get("temperature", 0.0)),
+        max_retries=int(data.get("max_retries", 6)),
         field_pages=field_pages,
         date_pages=list(data.get("date_pages", [])),
         agent_pages={k: list(v) for k, v in agent_pages.items()},

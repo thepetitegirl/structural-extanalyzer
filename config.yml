@@ -1,11 +1,9 @@
 # Non-secret settings. Credentials belong in .env (see .env.example).
 
-# Source document. Both are given so the pipeline works either way: if the file
-# is already at pdf_path it is used as-is, otherwise it is downloaded from
-# pdf_url and saved there for later runs. A fresh clone therefore needs only
-# this config, since data/ is gitignored.
+# Source document. Downloaded once from this URL and cached under data/ using
+# the filename from the URL, so later runs need no network. data/ is
+# gitignored, so a fresh clone needs only this config.
 pdf_url: https://isomer-user-content.by.gov.sg/153/20f8e128-58fa-44ea-a109-f2dec3995271/fy2024_analysis_of_revenue_and_expenditure.pdf
-pdf_path: data/fy2024_analysis_of_revenue_and_expenditure.pdf
 
 # Pages holding the target fields, 1-indexed as cited in the requirements.
 # Restricted deliberately: the same term carries different values elsewhere in
@@ -43,9 +41,15 @@ agent_pages:
 # Hard cap on supervisor turns, so the graph provably terminates.
 max_turns: 4
 
-# Groq only - see notebooks/02_extraction.ipynb for why other providers were rejected.
+# Groq model provider
 provider: groq
 model: llama-3.1-8b-instant
+
+# How many times the client retries a rate-limited request. Groq's free tier
+# allows 6,000 tokens per minute, and one supervisor query is ~7k across six
+# rapid calls, so the last can trip the limit. The client honours the server's
+# retry-after header, so retries ride out the window rather than failing.
+max_retries: 6
 
 # 0 makes extraction deterministic: the model takes the most likely token each
 # time, so the same pages yield the same figures. Raise it only to diagnose a

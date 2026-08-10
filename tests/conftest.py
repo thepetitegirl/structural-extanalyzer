@@ -50,7 +50,7 @@ class ScriptedModel(Runnable):
 def config():
     """A config with the real page bindings, but no filesystem dependency."""
     return Config(
-        pdf_path="data/example.pdf",
+        pdf_url="https://example.invalid/doc.pdf",
         pages=[5, 6, 8, 20],
         provider="groq",
         model="llama-3.1-8b-instant",

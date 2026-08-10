@@ -104,10 +104,7 @@ def find_dates(
         config = load_config()
 
     if model is None:
-        config.api_key()
-        model = get_chat_model(
-            config.provider, config.model, temperature=config.temperature
-        )
+        model = get_chat_model(config)
 
     page_text = extract_pages(pdf_path, pages)
     chain = load_prompt("dates") | model.with_structured_output(DocumentDates)
@@ -130,7 +127,7 @@ def main() -> None:
     """
     config = load_config()
 
-    pdf_path = ensure_pdf(config.pdf_url, config.pdf_path)
+    pdf_path = ensure_pdf(config.pdf_url)
     found = find_dates(pdf_path, config.date_pages, config=config)
 
     try:

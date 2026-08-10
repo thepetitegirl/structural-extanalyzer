@@ -8,7 +8,6 @@ from langchain_core.runnables import Runnable
 
 from src.extraction.extractor import build_chain, extract
 from src.extraction.schemas import ExtractionResult, Money, Percentage, TaxList
-from src.llm import UnsupportedProviderError, get_chat_model
 
 PAGE_VARS = {
     "page_cit": "5",
@@ -120,9 +119,3 @@ def test_extract_reads_configured_pages(tmp_path, expected_result, monkeypatch):
     result = extract("any.pdf", [5], model=model)
 
     assert result.fiscal_position.value == -3.57
-
-
-def test_unsupported_provider_raises():
-    """An unknown provider names the ones that are supported."""
-    with pytest.raises(UnsupportedProviderError, match="groq"):
-        get_chat_model("nonexistent-provider", "some-model")

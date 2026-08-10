@@ -29,11 +29,11 @@ def page_variables(config) -> dict[str, str]:
     a page in one place changes it everywhere.
     """
     return {
-        "page_cit": config.page_for("corporate_income_tax"),
-        "page_cit_yoy": config.page_for("corporate_income_tax_yoy"),
-        "page_top_ups": config.page_for("total_top_ups"),
-        "page_taxes": config.page_for("operating_revenue_taxes"),
-        "page_fiscal": config.page_for("fiscal_position"),
+        "page_cit": config.pages_for_field("corporate_income_tax"),
+        "page_cit_yoy": config.pages_for_field("corporate_income_tax_yoy"),
+        "page_top_ups": config.pages_for_field("total_top_ups"),
+        "page_taxes": config.pages_for_field("operating_revenue_taxes"),
+        "page_fiscal": config.pages_for_field("fiscal_position"),
     }
 
 
@@ -52,10 +52,7 @@ def extract(
         config = load_config()
 
     if model is None:
-        config.api_key()  # fail here rather than mid-request
-        model = get_chat_model(
-            config.provider, config.model, temperature=config.temperature
-        )
+        model = get_chat_model(config)
 
     page_text = extract_pages(pdf_path, pages)
     chain = build_chain(model)
@@ -71,7 +68,7 @@ def main() -> None:
     edit prompts/extraction.yaml, re-run, and read the table.
     """
     config = load_config()
-    pdf_path = ensure_pdf(config.pdf_url, config.pdf_path)
+    pdf_path = ensure_pdf(config.pdf_url)
     result = extract(pdf_path, config.pages, config=config)
 
     print(json.dumps(result.model_dump(), indent=2))

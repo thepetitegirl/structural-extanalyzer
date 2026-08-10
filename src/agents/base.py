@@ -52,7 +52,7 @@ def run_agent(
     `agent` is the config key ("revenue"), and the returned finding names the
     node ("revenue_agent") so the trace and the graph agree.
     """
-    pages = config.pages_for(agent)
+    pages = config.pages_for_agent(agent)
     page_text = extract_pages(pdf_path, pages)
 
     prompt = load_prompt(f"{agent}_agent")

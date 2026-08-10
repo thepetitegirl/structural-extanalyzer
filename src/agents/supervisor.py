@@ -137,7 +137,7 @@ def decide(state, model, config) -> tuple[str, Decision]:
 
 def _render_pages(config, agent: str) -> str:
     """Render an agent's pages for the prompt."""
-    return ", ".join(str(page) for page in config.pages_for(agent))
+    return ", ".join(str(page) for page in config.pages_for_agent(agent))
 
 
 def _render_findings(findings: list[Finding]) -> str:

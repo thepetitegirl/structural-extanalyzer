@@ -5,12 +5,40 @@ No test reaches the network: the fetch function is stubbed.
 
 import pytest
 
-from src.ingestion.download import DownloadError, ensure_pdf
+from src.ingestion.download import DownloadError, ensure_pdf, local_path
+
+URL = "https://example.invalid/reports/fy2024_analysis.pdf"
 
 
-def test_returns_existing_file_without_fetching(tmp_path):
-    """An already-downloaded file is used as-is."""
-    target = tmp_path / "doc.pdf"
+def test_local_path_takes_the_filename_from_the_url(tmp_path):
+    """The cache location is derived from the URL, not configured separately."""
+    assert local_path(URL, tmp_path).name == "fy2024_analysis.pdf"
+
+
+def test_local_path_decodes_percent_escapes(tmp_path):
+    """A URL-encoded filename is written out readably."""
+    encoded = "https://example.invalid/my%20report.pdf"
+
+    assert local_path(encoded, tmp_path).name == "my report.pdf"
+
+
+def test_url_without_a_filename_raises(tmp_path):
+    """A URL with no filename gives nothing to save as."""
+    with pytest.raises(DownloadError, match="filename"):
+        local_path("https://example.invalid/", tmp_path)
+
+
+def test_downloads_when_absent(tmp_path):
+    """A missing file is fetched and written to the derived path."""
+    result = ensure_pdf(URL, fetch=lambda url: b"%PDF-1.4 new", data_dir=tmp_path)
+
+    assert result.read_bytes() == b"%PDF-1.4 new"
+    assert result.name == "fy2024_analysis.pdf"
+
+
+def test_existing_file_is_reused_without_fetching(tmp_path):
+    """A cached document is used as-is, so it is downloaded at most once."""
+    target = tmp_path / "fy2024_analysis.pdf"
     target.write_bytes(b"%PDF-1.4 existing")
 
     called = False
@@ -20,54 +48,25 @@ def test_returns_existing_file_without_fetching(tmp_path):
         called = True
         return b"downloaded"
 
-    result = ensure_pdf("https://example.invalid/doc.pdf", target, fetch=fetch)
+    result = ensure_pdf(URL, fetch=fetch, data_dir=tmp_path)
 
-    assert result == target
-    assert not called, "should not re-download a file that is already present"
-
-
-def test_downloads_when_absent(tmp_path):
-    """A missing file is fetched and written to the target path."""
-    target = tmp_path / "nested" / "doc.pdf"
-
-    result = ensure_pdf(
-        "https://example.invalid/doc.pdf", target, fetch=lambda url: b"%PDF-1.4 new"
-    )
-
-    assert result.read_bytes() == b"%PDF-1.4 new"
+    assert result.read_bytes() == b"%PDF-1.4 existing"
+    assert not called, "should not re-download a document already cached"
 
 
-def test_creates_parent_directory(tmp_path):
-    """The target directory is created if it does not exist."""
-    target = tmp_path / "data" / "doc.pdf"
+def test_creates_the_data_directory(tmp_path):
+    """data/ is gitignored, so a fresh clone will not have it."""
+    target_dir = tmp_path / "data"
 
-    ensure_pdf("https://example.invalid/doc.pdf", target, fetch=lambda url: b"%PDF-x")
+    ensure_pdf(URL, fetch=lambda url: b"%PDF-x", data_dir=target_dir)
 
-    assert target.parent.is_dir()
-
-
-def test_rejects_a_response_that_is_not_a_pdf(tmp_path):
-    """A response without a PDF header raises rather than being saved.
-
-    A redirect to an HTML error page would otherwise be written to disk and
-    fail later as an unreadable PDF.
-    """
-    target = tmp_path / "doc.pdf"
-
-    with pytest.raises(DownloadError, match="not a PDF"):
-        ensure_pdf(
-            "https://example.invalid/doc.pdf",
-            target,
-            fetch=lambda url: b"<!DOCTYPE html><html>404</html>",
-        )
-
-    assert not target.exists(), "a bad response must not be left on disk"
+    assert target_dir.is_dir()
 
 
-def test_missing_file_and_no_url_raises(tmp_path):
-    """Without a URL there is nothing to fall back on, so the error says so."""
-    with pytest.raises(DownloadError, match="no pdf_url"):
-        ensure_pdf(None, tmp_path / "absent.pdf", fetch=lambda url: b"%PDF")
+def test_missing_url_raises(tmp_path):
+    """Without a URL there is nothing to fetch, so the error says so."""
+    with pytest.raises(DownloadError, match="pdf_url"):
+        ensure_pdf("", fetch=lambda url: b"%PDF", data_dir=tmp_path)
 
 
 def test_fetch_failure_is_reported_with_the_url(tmp_path):
@@ -77,8 +76,4 @@ def test_fetch_failure_is_reported_with_the_url(tmp_path):
         raise OSError("connection refused")
 
     with pytest.raises(DownloadError, match="example.invalid"):
-        ensure_pdf(
-            "https://example.invalid/doc.pdf",
-            tmp_path / "doc.pdf",
-            fetch=failing_fetch,
-        )
+        ensure_pdf(URL, fetch=failing_fetch, data_dir=tmp_path)

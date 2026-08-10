@@ -13,10 +13,10 @@ def config_file(tmp_path):
     path.write_text(
         yaml.safe_dump(
             {
-                "pdf_path": "data/example.pdf",
+                "pdf_url": "https://example.invalid/doc.pdf",
                 "pages": [5, 6, 8, 20],
-                "provider": "google",
-                "model": "gemini-2.0-flash",
+                "provider": "groq",
+                "model": "llama-3.1-8b-instant",
             }
         )
     )
@@ -27,10 +27,10 @@ def test_loads_values_from_yaml(config_file):
     """Values in config.yml are exposed as attributes."""
     config = load_config(config_file)
 
-    assert config.pdf_path == "data/example.pdf"
+    assert config.pdf_url == "https://example.invalid/doc.pdf"
     assert config.pages == [5, 6, 8, 20]
-    assert config.provider == "google"
-    assert config.model == "gemini-2.0-flash"
+    assert config.provider == "groq"
+    assert config.model == "llama-3.1-8b-instant"
 
 
 def test_field_pages_loaded(tmp_path):
@@ -39,10 +39,10 @@ def test_field_pages_loaded(tmp_path):
     path.write_text(
         yaml.safe_dump(
             {
-                "pdf_path": "data/example.pdf",
+                "pdf_url": "https://example.invalid/doc.pdf",
                 "pages": [5, 8],
-                "provider": "google",
-                "model": "gemini-2.0-flash",
+                "provider": "groq",
+                "model": "llama-3.1-8b-instant",
                 "field_pages": {"corporate_income_tax": 5, "fiscal_position": 8},
             }
         )
@@ -62,10 +62,10 @@ def test_field_pages_must_be_within_extracted_pages(tmp_path):
     path.write_text(
         yaml.safe_dump(
             {
-                "pdf_path": "data/example.pdf",
+                "pdf_url": "https://example.invalid/doc.pdf",
                 "pages": [5, 6],
-                "provider": "google",
-                "model": "gemini-2.0-flash",
+                "provider": "groq",
+                "model": "llama-3.1-8b-instant",
                 # page 20 is cited for a field but never extracted
                 "field_pages": {"total_top_ups": 20},
             }
@@ -87,10 +87,10 @@ def test_temperature_read_from_yaml(tmp_path):
     path.write_text(
         yaml.safe_dump(
             {
-                "pdf_path": "data/example.pdf",
+                "pdf_url": "https://example.invalid/doc.pdf",
                 "pages": [5],
-                "provider": "google",
-                "model": "gemini-2.0-flash",
+                "provider": "groq",
+                "model": "llama-3.1-8b-instant",
                 "temperature": 0.7,
             }
         )
@@ -102,7 +102,7 @@ def test_temperature_read_from_yaml(tmp_path):
 def _config_with(tmp_path, **overrides):
     """Write a config file with the given keys merged over a valid base."""
     data = {
-        "pdf_path": "data/example.pdf",
+        "pdf_url": "https://example.invalid/doc.pdf",
         "pages": [5, 6, 8, 20],
         "provider": "groq",
         "model": "llama-3.1-8b-instant",
@@ -123,12 +123,12 @@ def test_agent_pages_loaded(tmp_path):
 
 
 def test_pages_for_returns_an_agents_pages(tmp_path):
-    """pages_for() is the accessor agents use, mirroring page_for()."""
+    """pages_for_agent() returns page numbers; pages_for_field() renders them."""
     path = _config_with(
         tmp_path, agent_pages={"revenue": [9, 13, 15], "expenditure": [16, 18, 20]}
     )
 
-    assert load_config(path).pages_for("expenditure") == [16, 18, 20]
+    assert load_config(path).pages_for_agent("expenditure") == [16, 18, 20]
 
 
 def test_pages_for_unknown_agent_raises(tmp_path):
@@ -136,7 +136,7 @@ def test_pages_for_unknown_agent_raises(tmp_path):
     path = _config_with(tmp_path, agent_pages={"revenue": [9]})
 
     with pytest.raises(ConfigError, match="expenditure"):
-        load_config(path).pages_for("expenditure")
+        load_config(path).pages_for_agent("expenditure")
 
 
 def test_agent_pages_need_not_appear_in_pages(tmp_path):
@@ -189,7 +189,7 @@ def test_missing_file_raises(tmp_path):
 def test_missing_required_key_raises(tmp_path):
     """A config lacking a required key names the key it is missing."""
     path = tmp_path / "config.yml"
-    path.write_text(yaml.safe_dump({"pdf_path": "data/example.pdf"}))
+    path.write_text(yaml.safe_dump({"pdf_url": "https://example.invalid/doc.pdf"}))
 
     with pytest.raises(ConfigError, match="pages"):
         load_config(path)
@@ -204,7 +204,7 @@ def test_no_secrets_in_config(config_file):
 
 def test_api_key_read_from_environment(config_file, monkeypatch):
     """api_key() reads the provider's key from the environment."""
-    monkeypatch.setenv("GOOGLE_API_KEY", "test-key-value")
+    monkeypatch.setenv("GROQ_API_KEY", "test-key-value")
     config = load_config(config_file)
 
     assert config.api_key() == "test-key-value"
@@ -215,19 +215,24 @@ def test_missing_api_key_raises(config_file, monkeypatch):
     config = load_config(config_file)
     # Deleted after loading: load_config() calls load_dotenv(), which would
     # restore the variable from a developer's real .env file.
-    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
 
-    with pytest.raises(ConfigError, match="GOOGLE_API_KEY"):
+    with pytest.raises(ConfigError, match="GROQ_API_KEY"):
         config.api_key()
 
 
-def test_ollama_needs_no_api_key(tmp_path, monkeypatch):
-    """Ollama runs locally, so api_key() returns None instead of raising."""
+def test_provider_without_a_key_variable_returns_none(tmp_path, monkeypatch):
+    """A provider needing no credential returns None rather than raising.
+
+    Only Groq is supported now, but the factory keeps the distinction: a
+    locally-run provider would have no key variable, and that must not be
+    treated as a missing key.
+    """
     path = tmp_path / "config.yml"
     path.write_text(
         yaml.safe_dump(
             {
-                "pdf_path": "data/example.pdf",
+                "pdf_url": "https://example.invalid/doc.pdf",
                 "pages": [5],
                 "provider": "ollama",
                 "model": "qwen3:8b",

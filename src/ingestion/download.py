@@ -1,22 +1,32 @@
 """Fetching the source document.
 
-`data/` is gitignored, so a fresh clone has no PDF. The URL lives in config.yml
-and the file is downloaded once, then reused - a clone needs only the config,
-not the document.
+Only the URL is configured. The file is saved under `data/` using the filename
+from the URL, and reused on later runs - so a fresh clone needs nothing but the
+config, and no run downloads the same document twice.
 """
 
 from __future__ import annotations
 
+import tomllib
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
-# A PDF always starts with this. Checking it catches the common failure where a
-# redirect returns an HTML error page that would otherwise be saved as a .pdf
-# and fail much later as an unreadable document.
-PDF_MAGIC = b"%PDF"
+PYPROJECT = Path(__file__).resolve().parents[2] / "pyproject.toml"
 
-USER_AGENT = "structural-extanalyzer"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+
+
+def _user_agent() -> str:
+    """Identify this client to the server it fetches from.
+
+    Both name and version come from pyproject.toml, read at run time, so
+    neither is written out here and neither can drift from the project's own
+    metadata.
+    """
+    project = tomllib.loads(PYPROJECT.read_text())["project"]
+    return f"{project['name']}/{project['version']}"
 
 
 class DownloadError(Exception):
@@ -25,38 +35,40 @@ class DownloadError(Exception):
 
 def _fetch(url: str) -> bytes:
     """Retrieve a URL and return its body."""
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    request = urllib.request.Request(url, headers={"User-Agent": _user_agent()})
     with urllib.request.urlopen(request, timeout=60) as response:
         return response.read()
 
 
-def ensure_pdf(
-    url: str | None,
-    path: Path | str,
-    fetch: Callable[[str], bytes] = _fetch,
-) -> Path:
-    """Return a local path to the PDF, downloading it if not already present."""
-    path = Path(path)
+def local_path(url: str, data_dir: Path | str = DATA_DIR) -> Path:
+    """Where a URL's document is cached, taken from the URL's filename."""
+    name = Path(unquote(urlparse(url).path)).name
+    if not name:
+        raise DownloadError(f"Cannot determine a filename from {url}.")
+    return Path(data_dir) / name
 
+
+def ensure_pdf(
+    url: str,
+    fetch: Callable[[str], bytes] = _fetch,
+    data_dir: Path | str = DATA_DIR,
+) -> Path:
+    """Return a local path to the document, downloading it if not already there.
+
+    The cached file is used as-is when present, so the document is fetched at
+    most once however many times the pipeline runs.
+    """
+    if not url:
+        raise DownloadError("No pdf_url is configured. Add one to config.yml.")
+
+    path = local_path(url, data_dir)
     if path.is_file():
         return path
-
-    if not url:
-        raise DownloadError(
-            f"{path} does not exist and no pdf_url is configured. "
-            "Add pdf_url to config.yml or place the file at that path."
-        )
 
     try:
         payload = fetch(url)
     except Exception as exc:
         raise DownloadError(f"Could not download {url}: {exc}") from exc
-
-    if not payload.startswith(PDF_MAGIC):
-        raise DownloadError(
-            f"Response from {url} is not a PDF "
-            f"(starts with {payload[:20]!r}). The link may have moved."
-        )
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(payload)

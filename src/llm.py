@@ -1,12 +1,16 @@
 """Chat model factory.
 
-Groq only. Other providers were evaluated and rejected: gpt-oss cannot call
-tools at either size, local models via Ollama fold units into values and are
-slow, and langchain-huggingface does not support Pydantic schemas for function
-calling. See notebooks/02_extraction.ipynb for the measurements.
+Groq is used as the model provider: it does not require downloading models onto
+local hardware, and it supports Pydantic schemas for structured output, where
+`langchain-huggingface` raises NotImplementedError.
+
+Every setting comes from configuration - provider, model, temperature and retry
+count from `config.yml`, the API key from the environment via `.env`. Nothing
+about how the model behaves is written out here, so changing it never means
+editing Python.
 
 Kept as a factory rather than an inline constructor so the model is built in one
-place and Parts 2 and 3 share it.
+place and all three parts share it.
 """
 
 from __future__ import annotations
@@ -20,19 +24,32 @@ class UnsupportedProviderError(Exception):
     """Raised when the configured provider has no factory branch."""
 
 
-def get_chat_model(provider: str, model: str, **kwargs: Any):
-    """Return a chat model for the given provider.
+def get_chat_model(config, **overrides: Any):
+    """Build the chat model described by `config`.
 
-    Temperature defaults to 0: extraction should be reproducible, and there is
-    no value in sampling variety when copying figures out of a document.
+    `config.api_key()` is called first, so a missing credential fails here with
+    a message naming the variable rather than as an opaque auth error partway
+    through a run.
+
+    `overrides` let a caller vary one setting without editing config - the model
+    comparison notebook uses it to try a different model - and are unused by the
+    pipeline itself.
     """
-    kwargs.setdefault("temperature", 0)
+    config.api_key()
 
-    if provider == "groq":
+    settings: dict[str, Any] = {
+        "model": config.model,
+        "temperature": config.temperature,
+        "max_retries": config.max_retries,
+    }
+    settings.update(overrides)
+
+    if config.provider == "groq":
         from langchain_groq import ChatGroq
 
-        return ChatGroq(model=model, **kwargs)
+        return ChatGroq(**settings)
 
     raise UnsupportedProviderError(
-        f"Unknown provider {provider!r}. Supported: {', '.join(SUPPORTED_PROVIDERS)}."
+        f"Unknown provider {config.provider!r}. "
+        f"Supported: {', '.join(SUPPORTED_PROVIDERS)}."
     )
