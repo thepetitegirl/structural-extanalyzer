@@ -1,0 +1,89 @@
+# Demo queries for the supervisor, with what each is expected to do.
+#
+# Edit here rather than in the notebook: adding a query needs no code change,
+# and `enabled: false` skips one without deleting it - useful when the daily
+# token budget is tight.
+#
+# `routed_to` is the agents the supervisor should invoke. An empty list means
+# the query should be declined without invoking any.
+#
+# `figures` must all appear in the answer's citations. Each group in
+# `figures_any_of` needs one member - the Future Energy Fund is correct as
+# 5.0 billion (pp.16, 18) or 5,000 million (p.20), depending on the page cited.
+
+reference_answer_note: |
+  The document never states which revenue stream funds the Future Energy Fund.
+  Government revenue is not earmarked to particular funds, so an answer naming
+  one - "funded by GST" - is wrong however fluent. The expected answer states
+  the $5.0bn top-up, places it in the overall Budget, and says plainly that no
+  specific stream is identified.
+
+queries:
+  - id: revenue_only
+    query: What are the key government revenue streams for FY2024?
+    demonstrates: Single-agent routing. The supervisor sends this to revenue
+      alone and does not invoke expenditure.
+    routed_to: [revenue_agent]
+    figures:
+      - {value: 108.6, unit: billion}
+    enabled: true
+
+  - id: expenditure_only
+    query: How much is being topped up to the Future Energy Fund, and in what
+      unit does the document state it?
+    demonstrates: Single-agent routing the other way, and the unit trap - the
+      same amount appears as 5.00 billion and 5,000 million on different pages.
+    routed_to: [expenditure_agent]
+    figures_any_of:
+      - - {value: 5.0, unit: billion}
+        - {value: 5000, unit: million}
+    enabled: true
+
+  - id: required
+    query: What are the key government revenue streams, and how will the Budget
+      for the Future Energy Fund be supported?
+    demonstrates: The requirement's query. Two agents collaborating - neither
+      can answer it alone, because page 13 is scoped to revenue only.
+    routed_to: [revenue_agent, expenditure_agent]
+    figures:
+      - {value: 108.6, unit: billion}
+    figures_any_of:
+      - - {value: 5.0, unit: billion}
+        - {value: 5000, unit: million}
+    enabled: true
+
+  - id: collaboration
+    query: The Government tops up Endowment and Trust Funds by $20.4 billion.
+      Where does the money come from?
+    demonstrates: One agent's findings informing the other. The expenditure
+      pages say what the top-ups are; only the revenue pages say what funds the
+      Budget they come from.
+    routed_to: [revenue_agent, expenditure_agent]
+    enabled: true
+
+  - id: nirc_classification
+    query: Is NIRC a revenue stream or an expenditure item?
+    demonstrates: A question needing the document read rather than
+      pattern-matched. NIRC is part of Total Revenue but is not Operating
+      Revenue, and page 9 states the distinction.
+    routed_to: [revenue_agent]
+    figures:
+      - {value: 23.5, unit: billion}
+    enabled: true
+
+  - id: out_of_scope_sensible
+    query: What is the capital of France?
+    demonstrates: Declining a question the document cannot answer. The sharpest
+      case - the model knows the answer from training, and answering would be
+      ungrounded by definition.
+    routed_to: []
+    must_decline: true
+    enabled: true
+
+  - id: out_of_scope_nonsense
+    query: asdfgh qwerty
+    demonstrates: Declining unparseable input rather than routing it somewhere
+      and producing an answer from an empty finding set.
+    routed_to: []
+    must_decline: true
+    enabled: true
