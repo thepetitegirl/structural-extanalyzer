@@ -80,6 +80,7 @@ def normalize_date(text: str) -> str | None:
     if (parsed := _parse(text)) is not None:
         return parsed.isoformat()
 
+    # Regex fallback, for non-bare dates: a date embedded in surrounding text.
     for pattern in DATE_PATTERNS:
         for match in re.finditer(pattern, text):
             if (parsed := _parse(match.group(0))) is not None:
