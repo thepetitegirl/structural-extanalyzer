@@ -23,10 +23,6 @@ from pydantic import BaseModel, Field
 from src.extraction.prompts import load_prompt
 from src.graph.state import AGENTS, Decision, Finding, Route
 
-# Which agent to fall back to when the model tries to synthesise with nothing
-# in hand. Keyed by a word that suggests the subject.
-_EXPENDITURE_HINTS = ("fund", "spend", "expenditure", "top-up", "top up", "transfer")
-
 
 class RouteDecision(BaseModel):
     """The supervisor's choice for one turn.
@@ -52,14 +48,19 @@ class RouteDecision(BaseModel):
     )
 
 
-def _fallback_agent(query: str, visited: list[str]) -> str:
-    """Pick an agent when the model tried to synthesise with no findings."""
+def _fallback_agent(query: str, visited: list[str], config) -> str:
+    """Pick an agent when the model tried to synthesise with no findings.
+
+    The hints come from config: they name the words that suggest a query is
+    about spending. Getting this wrong costs a turn rather than an answer,
+    since the other agent still runs before synthesis.
+    """
     remaining = [agent for agent in AGENTS if agent not in visited]
     if not remaining:
         return "synthesis"
 
     lowered = query.lower()
-    if any(hint in lowered for hint in _EXPENDITURE_HINTS):
+    if any(hint in lowered for hint in config.expenditure_hints):
         preferred = "expenditure_agent"
     else:
         preferred = "revenue_agent"
@@ -92,7 +93,7 @@ def route(
         overridden = f"turn cap of {config.max_turns} reached"
 
     elif chose == "synthesis" and not findings:
-        routed_to = _fallback_agent(query, visited)
+        routed_to = _fallback_agent(query, visited, config)
         overridden = "nothing to synthesise; no agent has reported yet"
 
     record = Decision(

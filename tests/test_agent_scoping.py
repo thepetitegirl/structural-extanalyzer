@@ -11,7 +11,7 @@ against ~1.6k for an agent's page set.
 
 import pytest
 
-from src.agents.base import PROMPT_CHARACTER_BUDGET, run_agent
+from src.agents.base import run_agent
 from src.graph.state import Figure, Finding
 
 
@@ -95,7 +95,7 @@ def test_prompt_stays_within_its_character_budget(config, fake_pages):
 
     run_agent("revenue", "any.pdf", "Identify revenue streams", model, config)
 
-    assert len(model.prompts[0]) < PROMPT_CHARACTER_BUDGET
+    assert len(model.prompts[0]) < config.prompt_character_budget
 
 
 def test_finding_records_the_pages_that_were_read(config, fake_pages):

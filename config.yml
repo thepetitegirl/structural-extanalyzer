@@ -48,6 +48,35 @@ agent_pages:
 # Hard cap on supervisor turns, so the graph provably terminates.
 max_turns: 4
 
+# Words that suggest a query is about spending rather than revenue. Used only
+# when the model tries to synthesise before any agent has reported: the guard
+# has to send it somewhere, and these decide which agent goes first. A miss
+# costs a turn, not an answer - the other agent still runs before synthesis.
+expenditure_hints:
+  - fund
+  - spend
+  - expenditure
+  - top-up
+  - top up
+  - transfer
+
+# Ceiling on an agent's rendered prompt. An agent's pages are a few thousand
+# characters and the whole document is ~59k, so a prompt approaching that means
+# a page set above was widened by mistake - which multiplies the cost of every
+# call without visibly changing the output. Asserted in the tests, so widening
+# a page set fails loudly rather than quietly costing more.
+prompt_character_budget: 12000
+
+# Part 3: the reply when a query cannot be answered from the document at all.
+# Fixed text rather than a model call - the model may well know the answer, and
+# letting it reply would produce the ungrounded output the system prevents. It
+# names what the document does cover, so a reader knows what to ask instead.
+decline_message: >-
+  This question cannot be answered from the document. It covers Singapore
+  government revenue and expenditure for FY2024 - Operating Revenue and its
+  components, Net Investment Returns Contribution, Total Expenditure, Special
+  Transfers, and top-ups to Endowment and Trust Funds.
+
 # Groq model provider
 provider: groq
 model: llama-3.1-8b-instant

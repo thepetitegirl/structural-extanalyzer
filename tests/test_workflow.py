@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage
 from src.agents.base import AgentReport
 from src.agents.supervisor import RouteDecision
 from src.graph.state import Figure
-from src.graph.workflow import DECLINE_MESSAGE, build_graph, run_query
+from src.graph.workflow import build_graph, run_query
 
 
 def _figure(value, page, label, unit="billion"):
@@ -174,7 +174,7 @@ def test_out_of_scope_query_invokes_no_agent(config, fake_pages):
 
     assert final.get("visited", []) == []
     assert final["declined"]
-    assert final["answer"] == DECLINE_MESSAGE
+    assert final["answer"] == config.decline_message
 
 
 def test_decline_does_not_call_the_model_again(config, fake_pages):

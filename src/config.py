@@ -23,6 +23,17 @@ REQUIRED_KEYS = ("pdf_url", "pages", "provider", "model")
 # the application actually classifies against.
 DEFAULT_REFERENCE_DATE = "2024-01-01"
 
+# Part 3's reply to a query the document cannot answer, used when config.yml
+# does not give one. Fixed text rather than a model call: the model may well
+# know the answer, and letting it reply would produce exactly the ungrounded
+# output the rest of the system prevents.
+DEFAULT_DECLINE_MESSAGE = (
+    "This question cannot be answered from the document. It covers Singapore "
+    "government revenue and expenditure for FY2024 - Operating Revenue and its "
+    "components, Net Investment Returns Contribution, Total Expenditure, "
+    "Special Transfers, and top-ups to Endowment and Trust Funds."
+)
+
 # Providers that authenticate with an API key, and the variable holding it.
 # A provider absent from this map needs no credential, so api_key() returns
 # None for it rather than raising.
@@ -60,6 +71,18 @@ class Config:
     agent_pages: dict[str, list[int]] = field(default_factory=dict)
     # Part 3: hard cap on supervisor turns, so the graph provably terminates.
     max_turns: int = 4
+    # Part 3: what the graph replies when the document cannot answer at all.
+    decline_message: str = DEFAULT_DECLINE_MESSAGE
+    # Part 3: words that suggest a query is about spending rather than revenue,
+    # used only to pick a fallback agent when the model tries to synthesise
+    # with nothing in hand. A hint list that misses is not a wrong answer - the
+    # other agent still runs on a later turn.
+    expenditure_hints: list[str] = field(default_factory=list)
+    # Part 3: ceiling on an agent's rendered prompt. An agent's pages should be
+    # a few thousand characters, so a prompt near the whole document means a
+    # page set was widened by mistake - which multiplies the cost of every call
+    # without visibly changing the output.
+    prompt_character_budget: int = 12_000
 
     def pages_for_agent(self, agent: str) -> list[int]:
         """Part 3: the pages a specialist agent may read.
@@ -187,6 +210,21 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
             f"{reference_date!r}."
         ) from exc
 
+    # A budget of zero or less would fail every agent, so it is a configuration
+    # error rather than a limit that happens never to be satisfiable.
+    prompt_character_budget = int(data.get("prompt_character_budget", 12_000))
+    if prompt_character_budget < 1:
+        raise ConfigError(
+            f"prompt_character_budget must be positive, got "
+            f"{prompt_character_budget}."
+        )
+
+    # Declining with an empty string would answer nothing at all, so an blank
+    # message is a configuration error rather than a silent non-answer.
+    decline_message = str(data.get("decline_message") or DEFAULT_DECLINE_MESSAGE)
+    if not decline_message.strip():
+        raise ConfigError("decline_message must not be empty.")
+
     return Config(
         pdf_url=data["pdf_url"],
         pages=pages,
@@ -199,4 +237,11 @@ def load_config(path: Path | str = DEFAULT_CONFIG_PATH) -> Config:
         reference_date=reference_date,
         agent_pages={k: list(v) for k, v in agent_pages.items()},
         max_turns=max_turns,
+        decline_message=decline_message,
+        prompt_character_budget=prompt_character_budget,
+        # Lowercased here because the query is lowercased before matching, so a
+        # capitalised hint in the YAML would silently never fire.
+        expenditure_hints=[
+            str(hint).lower() for hint in (data.get("expenditure_hints") or [])
+        ],
     )

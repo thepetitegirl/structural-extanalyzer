@@ -198,6 +198,54 @@ def test_non_iso_reference_date_raises(tmp_path):
         load_config(_config_with(tmp_path, reference_date="16 February 2024"))
 
 
+def test_expenditure_hints_read_from_yaml(tmp_path):
+    """The words that steer the fallback agent are configuration."""
+    path = _config_with(tmp_path, expenditure_hints=["grant", "subsidy"])
+
+    assert load_config(path).expenditure_hints == ["grant", "subsidy"]
+
+
+def test_expenditure_hints_default_to_empty(tmp_path):
+    """Without hints the fallback still works, just without the preference."""
+    assert load_config(_config_with(tmp_path)).expenditure_hints == []
+
+
+def test_prompt_character_budget_read_from_yaml(tmp_path):
+    """The ceiling on an agent's prompt is configuration, not a literal."""
+    path = _config_with(tmp_path, prompt_character_budget=5000)
+
+    assert load_config(path).prompt_character_budget == 5000
+
+
+def test_prompt_character_budget_defaults(tmp_path):
+    """A config omitting the budget still has one."""
+    assert load_config(_config_with(tmp_path)).prompt_character_budget == 12_000
+
+
+def test_non_positive_prompt_character_budget_raises(tmp_path):
+    """A budget of zero would fail every agent, so it is caught at load."""
+    with pytest.raises(ConfigError, match="prompt_character_budget"):
+        load_config(_config_with(tmp_path, prompt_character_budget=0))
+
+
+def test_decline_message_read_from_yaml(tmp_path):
+    """What the graph says to an unanswerable query is configuration."""
+    path = _config_with(tmp_path, decline_message="Not in this document.")
+
+    assert load_config(path).decline_message == "Not in this document."
+
+
+def test_decline_message_defaults(tmp_path):
+    """A config omitting the message still declines with something sensible."""
+    assert "document" in load_config(_config_with(tmp_path)).decline_message
+
+
+def test_empty_decline_message_raises(tmp_path):
+    """Declining with an empty string would answer nothing at all."""
+    with pytest.raises(ConfigError, match="decline_message"):
+        load_config(_config_with(tmp_path, decline_message="   "))
+
+
 def test_missing_file_raises(tmp_path):
     """A missing config file raises ConfigError, not FileNotFoundError."""
     with pytest.raises(ConfigError, match="not found"):

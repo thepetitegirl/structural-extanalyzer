@@ -56,6 +56,7 @@ def config():
         model="llama-3.1-8b-instant",
         agent_pages={"revenue": [9, 13, 15], "expenditure": [16, 18, 20]},
         max_turns=4,
+        expenditure_hints=["fund", "spend", "expenditure", "top-up", "transfer"],
     )
 
 

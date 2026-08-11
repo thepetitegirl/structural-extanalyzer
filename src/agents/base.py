@@ -19,13 +19,6 @@ from src.extraction.prompts import load_prompt
 from src.graph.state import Figure, Finding
 from src.ingestion.parser import extract_pages
 
-# An agent's pages should be a few thousand characters. The whole document is
-# ~59k, so a prompt approaching that means a page set was widened by mistake -
-# which would multiply the cost of every call without changing the output
-# visibly. Tested, so the failure is loud.
-PROMPT_CHARACTER_BUDGET = 12_000
-
-
 class AgentReport(BaseModel):
     """What a specialist returns before it is wrapped with its provenance."""
 

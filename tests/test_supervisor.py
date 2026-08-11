@@ -104,6 +104,34 @@ def test_will_not_synthesise_with_no_findings(config):
     assert record.was_overridden
 
 
+def test_fallback_prefers_expenditure_when_the_query_hints_at_spending(config):
+    """A hint word in the query steers which agent the guard falls back to."""
+    decision, _ = route(
+        _decision("synthesis"),
+        visited=[],
+        findings=[],
+        turn=1,
+        config=config,
+        query="How will the Future Energy Fund be supported?",
+    )
+
+    assert decision == "expenditure_agent"
+
+
+def test_fallback_prefers_revenue_without_a_spending_hint(config):
+    """With no hint word the fallback goes to revenue."""
+    decision, _ = route(
+        _decision("synthesis"),
+        visited=[],
+        findings=[],
+        turn=1,
+        config=config,
+        query="What are the key government income streams?",
+    )
+
+    assert decision == "revenue_agent"
+
+
 def test_out_of_scope_is_not_overridden_by_the_empty_findings_guard(config):
     """Declining a query is a valid first decision, not a failure to gather.
 
