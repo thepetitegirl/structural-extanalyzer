@@ -66,7 +66,7 @@ def test_extracts_single_page(sample_pdf):
 
 
 def test_pages_are_one_indexed(sample_pdf):
-    """Page 1 is the first page, matching the citations in the requirements."""
+    """Page 1 is the first page, matching how the document numbers them."""
     assert "Page one" in extract_pages(sample_pdf, [1])
 
 

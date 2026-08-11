@@ -4,7 +4,7 @@
 # page is defined in one place only.
 #
 # Core features, and the failure each one fixes. Measured before/after in
-# notebooks/01_extraction.ipynb.
+# notebooks/02_extraction.ipynb.
 #
 #   1. Page citations declared binding, with the specific trap named.
 #      Fixes: top-ups returned as 24.32 billion from p.8 instead of 20,352

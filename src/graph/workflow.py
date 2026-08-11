@@ -1,4 +1,4 @@
-"""The supervisor graph.
+"""Part 3: the supervisor graph.
 
     START -> supervisor -> revenue_agent ------+
                  |  |                          |
@@ -11,7 +11,7 @@
 
 Both agents route unconditionally back to the supervisor, which is the only
 node that decides. A fixed chain would have no decision to trace, and the
-requirement asks for the supervisor's decision-making process - so the loop is
+a decision trace needs decisions to record - so the loop is
 what makes the deliverable possible, not an embellishment.
 
 Re-entering after each agent also lets the second agent's brief be written in
@@ -220,7 +220,7 @@ def stream_trace(query: str, model=None, config=None, pdf_path=None):
 
 
 def main() -> None:
-    """Answer the requirement's query and print the trace."""
+    """Answer the two-part query and print the trace."""
     query = (
         "What are the key government revenue streams, and how will the Budget "
         "for the Future Energy Fund be supported?"

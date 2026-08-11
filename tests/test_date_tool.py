@@ -71,7 +71,7 @@ def test_reference_date_itself_is_ongoing():
 def test_classification_is_relative_to_supplied_reference():
     """The reference date is a parameter, not today's date.
 
-    The requirement fixes it at 2024-01-01, so a date in 2024 must classify as
+    It is fixed at 2024-01-01, so a date in 2024 must classify as
     upcoming even though that date is now in the past.
     """
     assert (

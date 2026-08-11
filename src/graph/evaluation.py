@@ -1,4 +1,4 @@
-"""Deterministic checks on an open-ended answer.
+"""Part 3: deterministic checks on an open-ended answer.
 
 Parts 1 and 2 score against exact values. Part 3's queries have no single
 correct wording, so the prose cannot be scored - but four things can be, and

@@ -1,6 +1,6 @@
 """The supervisor's decision trace.
 
-The requirement names this a deliverable, so it is tested like one. What
+The trace is a deliverable in its own right, so it is tested like one. What
 separates a decision trace from a route log is that it records why a route was
 taken, and when the system overruled the model - both are asserted here.
 

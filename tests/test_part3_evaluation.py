@@ -9,7 +9,7 @@ Four things can be:
   - did any agent cite a page outside its own set.
 
 Together these verify the answer is grounded and correctly routed, which is
-what the requirement asks for. Whether it reads well is left to the reader.
+what matters. Whether it reads well is left to the reader.
 """
 
 import pytest

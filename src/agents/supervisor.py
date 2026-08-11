@@ -1,4 +1,4 @@
-"""The supervisor: decides which agent works next, or that the work is done.
+"""Part 3: the supervisor, which decides what happens next.
 
 The model chooses; deterministic code guards the choice. This is the same split
 as Part 2, where the LLM classifies a date and a tool checks the arithmetic -

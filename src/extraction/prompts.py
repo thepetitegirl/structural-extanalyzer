@@ -1,4 +1,4 @@
-"""Prompt loading.
+"""Prompt loading, shared by all three parts.
 
 Prompt text lives in `prompts/*.yaml` so it can be revised without touching
 Python. This module holds only the loading logic.

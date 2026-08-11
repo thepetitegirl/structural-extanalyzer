@@ -1,4 +1,4 @@
-"""Chat model factory.
+"""Chat model factory, shared by all three parts.
 
 Groq is used as the model provider: it does not require downloading models onto
 local hardware, and it supports Pydantic schemas for structured output, where

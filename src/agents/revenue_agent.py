@@ -1,4 +1,4 @@
-"""The revenue specialist node.
+"""Part 3: the revenue specialist node.
 
 Thin by design: the work is in `base.run_agent`, so the two agents cannot drift
 apart. What distinguishes this agent is its prompt and its page set, both named

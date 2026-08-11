@@ -62,7 +62,7 @@ def test_classify_returns_a_plain_string():
 
 
 def test_reference_date_defaults_to_the_required_value():
-    """Omitting the reference uses 2024-01-01, as the requirement specifies."""
+    """Omitting the reference uses the fixed default of 2024-01-01."""
     assert mcp_server.classify_date("2024-02-16") == "Upcoming"
 
 

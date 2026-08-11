@@ -1,4 +1,4 @@
-"""State passed between nodes of the supervisor graph.
+"""Part 3: state passed between nodes of the supervisor graph.
 
 Three design decisions worth naming:
 

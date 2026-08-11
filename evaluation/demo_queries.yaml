@@ -42,7 +42,7 @@ queries:
   - id: required
     query: What are the key government revenue streams, and how will the Budget
       for the Future Energy Fund be supported?
-    demonstrates: The requirement's query. Two agents collaborating - neither
+    demonstrates: The two-part query. Two agents collaborating - neither
       can answer it alone, because page 13 is scoped to revenue only.
     routed_to: [revenue_agent, expenditure_agent]
     figures:

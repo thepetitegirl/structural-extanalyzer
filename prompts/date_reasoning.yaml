@@ -1,7 +1,7 @@
 # Step 2: the LLM reasons about each normalised date and classifies it.
 #
 # The classification is the model's judgement, not a tool call - that is what
-# the requirement asks for. A tool checks the answer afterwards, so a confident
+# the design calls for. A tool checks the answer afterwards, so a confident
 # wrong classification is caught rather than shipped.
 #
 # The reference date is stated repeatedly and deliberately. A model asked to

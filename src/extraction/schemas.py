@@ -1,4 +1,4 @@
-"""Pydantic models describing the extraction output.
+"""Part 1: Pydantic models describing the extraction output.
 
 Every field carries provenance - the page it came from and the text it was read
 from. This is a correctness measure, not decoration: several target terms appear

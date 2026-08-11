@@ -1,4 +1,4 @@
-"""Shared machinery for the specialist agents.
+"""Part 3: shared machinery for the specialist agents.
 
 The two agents differ only in their name, their pages and their prompt. Writing
 them as two near-identical files would invite drift, so the work lives here and

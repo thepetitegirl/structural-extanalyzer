@@ -1,4 +1,4 @@
-"""Fetching the source document.
+"""Fetching the source document, shared by all three parts.
 
 Only the URL is configured. The file is saved under `data/` using the filename
 from the URL, and reused on later runs - so a fresh clone needs nothing but the

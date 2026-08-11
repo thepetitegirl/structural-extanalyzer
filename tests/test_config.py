@@ -180,6 +180,24 @@ def test_max_turns_read_from_yaml(tmp_path):
     assert load_config(_config_with(tmp_path, max_turns=2)).max_turns == 2
 
 
+def test_reference_date_read_from_yaml(tmp_path):
+    """Part 2's reference date is configuration, not a literal in the source."""
+    path = _config_with(tmp_path, reference_date="2020-06-30")
+
+    assert load_config(path).reference_date == "2020-06-30"
+
+
+def test_reference_date_defaults(tmp_path):
+    """A config omitting the reference still yields the specified date."""
+    assert load_config(_config_with(tmp_path)).reference_date == "2024-01-01"
+
+
+def test_non_iso_reference_date_raises(tmp_path):
+    """A malformed reference is caught at load, not mid-classification."""
+    with pytest.raises(ConfigError, match="reference_date"):
+        load_config(_config_with(tmp_path, reference_date="16 February 2024"))
+
+
 def test_missing_file_raises(tmp_path):
     """A missing config file raises ConfigError, not FileNotFoundError."""
     with pytest.raises(ConfigError, match="not found"):

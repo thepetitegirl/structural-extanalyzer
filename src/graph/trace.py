@@ -1,6 +1,6 @@
-"""Rendering the supervisor's decision trace.
+"""Part 3: rendering the supervisor's decision trace.
 
-The requirement asks for the supervisor's decision-making *process*, not a log
+A decision trace records the supervisor's decision-making *process*, not a log
 of which functions ran. Four things separate the two, and each is a constraint
 on what gets recorded rather than a formatting choice:
 

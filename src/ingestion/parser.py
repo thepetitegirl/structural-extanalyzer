@@ -50,7 +50,7 @@ def extract_pages(pdf_path: Path | str, pages: list[int]) -> str:
 
     sections = []
     for page in pages:
-        text = reader.pages[page - 1].extract_text() or ""
+        text = reader.pages[page - 1].extract_text() or "" #pypdf is 0 indexed
         sections.append(f"{PAGE_MARKER.format(page=page)}\n{text}")
 
     return "\n\n".join(sections)

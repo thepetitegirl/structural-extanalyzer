@@ -1,4 +1,4 @@
-"""The extraction chain: page text in, validated ExtractionResult out."""
+"""Part 1: the extraction chain - page text in, ExtractionResult out."""
 
 from __future__ import annotations
 

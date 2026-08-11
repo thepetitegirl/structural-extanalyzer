@@ -1,6 +1,6 @@
-"""Step 2: an LLM classifies each normalised date against a reference date.
+"""Part 2, step 2: an LLM classifies each normalised date against a reference.
 
-The requirement asks for LLM reasoning here rather than a comparison operator,
+Classification is reasoned about here rather than computed,
 so the model produces the answer. That invites a confident wrong answer, since
 a status label carries no evidence of how it was reached.
 
@@ -14,9 +14,8 @@ Three things guard against that:
     result deterministically. A disagreement is reported, not silently
     accepted.
 
-The checker does not overrule the model - the LLM's answer is what the
-requirement asks for, so it is what gets reported, with the disagreement
-attached.
+The checker does not overrule the model - the LLM's answer is what gets
+reported, with any disagreement attached.
 """
 
 from __future__ import annotations
@@ -32,8 +31,6 @@ from src.extraction.prompts import load_prompt
 from src.ingestion.download import ensure_pdf
 from src.llm import get_chat_model
 from src.tools.date_tool import DateStatus, classify_date
-
-REFERENCE_DATE = "2024-01-01"
 
 
 class DateClassification(BaseModel):
@@ -64,7 +61,7 @@ class DateClassifications(BaseModel):
 def to_output(classified: DateClassifications) -> list[dict]:
     """Return the classified dates.
 
-    The three keys the requirement specifies, plus the comparison the model
+    The three keys the specification gives, plus the comparison the model
     made. The reasoning is not required, but a bare status carries no evidence
     of how it was reached - and a wrong classification is indistinguishable
     from a right one without it.
@@ -80,13 +77,21 @@ def to_output(classified: DateClassifications) -> list[dict]:
     ]
 
 
-def check(classified: DateClassifications, reference: str = REFERENCE_DATE) -> list[dict]:
+def check(
+    classified: DateClassifications, reference: str | None = None, config=None
+) -> list[dict]:
     """Compare each classification against the deterministic tool.
 
-    Kept separate from the answer: the requirement's output is three keys, so
+    Kept separate from the answer: the reported output is three keys, so
     this is diagnostic rather than part of the result. A disagreement means the
     model reached a conclusion the arithmetic does not support.
+
+    The reference comes from config unless one is passed, so the date the
+    answer depends on is defined in `config.yml` and nowhere else.
     """
+    if reference is None:
+        reference = (config or load_config()).reference_date
+
     checked = []
 
     for entry in classified.dates:
@@ -107,11 +112,17 @@ def check(classified: DateClassifications, reference: str = REFERENCE_DATE) -> l
 
 
 def classify(
-    dates: list[dict], model=None, reference: str = REFERENCE_DATE, config=None
+    dates: list[dict], model=None, reference: str | None = None, config=None
 ) -> DateClassifications:
-    """Have the model classify each normalised date against the reference."""
+    """Have the model classify each normalised date against the reference.
+
+    The reference is read from config unless the caller names one explicitly.
+    """
     if config is None:
         config = load_config()
+
+    if reference is None:
+        reference = config.reference_date
 
     if model is None:
         model = get_chat_model(config)
@@ -141,7 +152,7 @@ def main() -> None:
     config = load_config()
 
     pdf_path = ensure_pdf(config.pdf_url)
-    found = find_dates(pdf_path, config.date_pages, config=config)
+    found = find_dates(pdf_path, config=config)
     normalised = normalized_with_context(found)
 
     for entry in normalised:
@@ -156,7 +167,7 @@ def main() -> None:
     print(score_dates(to_output(classified)).table())
 
     # Diagnostic, not part of the answer: does the arithmetic agree?
-    checked = check(classified)
+    checked = check(classified, config=config)
     disagreements = [entry for entry in checked if not entry["agrees"]]
 
     if disagreements:

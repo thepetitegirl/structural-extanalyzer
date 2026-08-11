@@ -1,4 +1,4 @@
-"""The expenditure specialist node.
+"""Part 3: the expenditure specialist node.
 
 Thin by design, mirroring `revenue_agent`. Its pages carry the Future Energy
 Fund in three forms - 5.00 (billion), $5.0 billion, and 5,000 (million) - which
