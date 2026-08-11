@@ -44,3 +44,6 @@ data/
 # Jupyter and claude
 .ipynb_checkpoints/
 CLAUDE.md
+
+# Notebooks - kept on disk, untracked
+notebooks/
