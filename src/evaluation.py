@@ -5,7 +5,7 @@
 `src/graph/evaluation.py`, because an open-ended answer is checked differently.
 
 Separate from the unit tests, which mock the model. This compares a real
-extraction against `evaluation/expected.yaml`.
+extraction against `expectations/expected.yaml`.
 
 A value alone is not enough to score Part 1 against - 28.38 and 28.03 are both
 plausible answers for Corporate Income Tax, differing only in which page they
@@ -24,7 +24,7 @@ from pathlib import Path
 
 import yaml
 
-EXPECTED_PATH = Path(__file__).resolve().parents[1] / "evaluation" / "expected.yaml"
+EXPECTED_PATH = Path(__file__).resolve().parents[1] / "expectations" / "expected.yaml"
 
 # Figures are quoted to two decimals in the source, so anything closer than
 # half a hundredth is a rounding artefact rather than a different answer.
