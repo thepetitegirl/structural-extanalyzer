@@ -15,6 +15,7 @@ what matters. Whether it reads well is left to the reader.
 import pytest
 
 from src.graph.evaluation import (
+    demo_query,
     check_figures,
     check_page_discipline,
     check_routing,
@@ -303,3 +304,22 @@ def test_declined_query_scores_as_correctly_routed(config):
     report = score_part3(trace, expected={"routed_to": []}, config=config, page_text={})
 
     assert report.passed
+
+
+def test_demo_query_returns_the_named_query():
+    """A query is looked up by id, so main need not repeat its wording."""
+    assert "revenue streams" in demo_query("required")
+
+
+def test_demo_query_raises_on_an_unknown_id():
+    """A typo names a query that does not exist, so it fails loudly."""
+    with pytest.raises(KeyError, match="no_such_query"):
+        demo_query("no_such_query")
+
+
+def test_required_query_is_the_two_part_one():
+    """The required query asks about both revenue and the Future Energy Fund."""
+    query = demo_query("required")
+
+    assert "revenue" in query.lower()
+    assert "future energy fund" in query.lower()

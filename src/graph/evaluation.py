@@ -23,7 +23,7 @@ from src.evaluation import TOLERANCE, Check, Report
 from src.graph.trace import Trace
 
 DEMO_QUERIES_PATH = (
-    Path(__file__).resolve().parents[2] / "evaluation" / "demo_queries.yaml"
+    Path(__file__).resolve().parents[2] / "expectations" / "demo_queries.yaml"
 )
 
 
@@ -35,6 +35,24 @@ def load_demo_queries(path: Path | str = DEMO_QUERIES_PATH) -> list[dict]:
     """
     data = yaml.safe_load(Path(path).read_text()) or {}
     return [query for query in data.get("queries", []) if query.get("enabled", True)]
+
+
+def demo_query(query_id: str, path: Path | str = DEMO_QUERIES_PATH) -> str:
+    """The wording of one demo query, looked up by id.
+
+    Lets a caller name the query it wants - `demo_query("required")` - without
+    repeating the text, so the wording lives in the YAML alone. Disabled
+    queries are still found: skipping one in a demo run should not stop it
+    being referred to by name.
+    """
+    data = yaml.safe_load(Path(path).read_text()) or {}
+
+    for query in data.get("queries", []):
+        if query.get("id") == query_id:
+            return query["query"]
+
+    known = ", ".join(q.get("id", "?") for q in data.get("queries", []))
+    raise KeyError(f"No demo query with id {query_id!r}. Known ids: {known}.")
 
 
 def _normalise(text: str) -> str:
