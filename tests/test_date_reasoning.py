@@ -99,6 +99,48 @@ def test_reference_date_itself_is_ongoing():
     assert results[0]["agrees"]
 
 
+def _classified_period(status, start="2023-12-31", end="2024-02-01"):
+    """Build a model answer for a span rather than a single date."""
+    return DateClassifications(
+        dates=[
+            DateClassification(
+                original_text="a period running from 31 December 2023 to 1 February 2024",
+                normalized_date=None,
+                start_date=start,
+                end_date=end,
+                comparison="2024-01-01 falls between 2023-12-31 and 2024-02-01",
+                status=status,
+            )
+        ]
+    )
+
+
+def test_period_enclosing_the_reference_is_ongoing():
+    """A span containing the reference is Ongoing - what a point cannot be.
+
+    Nothing in this document is classified as a period, but the branch exists
+    so the definition of Ongoing is implemented rather than only described.
+    """
+    results = check(_classified_period(DateStatus.ONGOING))
+
+    assert results[0]["agrees"]
+    assert results[0]["tool_status"] == "Ongoing"
+
+
+def test_period_is_verified_with_the_span_rule():
+    """A span is checked by classify_period, not the single-date rule."""
+    results = check(_classified_period(DateStatus.EXPIRED, "2022-01-01", "2023-01-01"))
+
+    assert results[0]["tool_status"] == "Expired"
+
+
+def test_wrong_period_classification_is_caught():
+    """A wrong span answer is flagged, just as a wrong single date is."""
+    results = check(_classified_period(DateStatus.EXPIRED))
+
+    assert not results[0]["agrees"]
+
+
 def test_model_sees_only_the_normalised_dates():
     """The document is not passed to the model, so it cannot invent a date."""
     model = StubModel(_classified(DateStatus.UPCOMING))

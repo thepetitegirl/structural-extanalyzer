@@ -20,9 +20,12 @@ system: |
 
   THE THREE STATES
 
-  - Expired: the date falls BEFORE {reference}.
-  - Upcoming: the date falls AFTER {reference}.
-  - Ongoing: the date IS {reference} exactly.
+  - Expired: the date has already passed - it falls BEFORE {reference}.
+  - Upcoming: the date is in the future - it falls AFTER {reference}.
+  - Ongoing: the date refers to a period that is currently active. A period is
+    active when it has started and has not yet finished, so {reference} falls
+    within it. A single date is a point rather than a span, so it is Ongoing
+    only when it IS {reference} exactly.
 
   Dates are given in ISO format (YYYY-MM-DD), which compares left to right:
   first the year, then the month, then the day. A larger year is later. If the

@@ -30,7 +30,7 @@ from src.extraction.dates import find_dates, normalized_with_context
 from src.extraction.prompts import load_prompt
 from src.ingestion.download import ensure_pdf
 from src.llm import get_chat_model
-from src.tools.date_tool import DateStatus, classify_date
+from src.tools.date_tool import DateStatus, classify_date, classify_period
 
 
 class DateClassification(BaseModel):
@@ -39,7 +39,17 @@ class DateClassification(BaseModel):
     original_text: str = Field(
         description="The text the date was found in, copied from the input."
     )
-    normalized_date: str = Field(description="The ISO date, copied from the input.")
+    normalized_date: str | None = Field(
+        default=None, description="The ISO date, copied from the input."
+    )
+    start_date: str | None = Field(
+        default=None,
+        description="Only if the entry is a period: the ISO date it starts.",
+    )
+    end_date: str | None = Field(
+        default=None,
+        description="Only if the entry is a period: the ISO date it ends.",
+    )
     comparison: str = Field(
         description="The comparison made against the reference date, e.g. "
         "'2008 is earlier than 2024'. State this before deciding the status."
@@ -95,12 +105,27 @@ def check(
     checked = []
 
     for entry in classified.dates:
-        expected = classify_date.invoke(
-            {"iso_date": entry.normalized_date, "reference": reference}
-        )
+        # Ongoing means an active period, so a span is verified as a span and a
+        # single date as a point. Nothing in this document is a period - the two
+        # dates asked for are both points - but the definition is implemented
+        # rather than only described, and a period would be handled correctly.
+        if entry.start_date and entry.end_date:
+            expected = classify_period.invoke(
+                {
+                    "start": entry.start_date,
+                    "end": entry.end_date,
+                    "reference": reference,
+                }
+            )
+        else:
+            expected = classify_date.invoke(
+                {"iso_date": entry.normalized_date, "reference": reference}
+            )
         checked.append(
             {
                 "normalized_date": entry.normalized_date,
+                "start_date": entry.start_date,
+                "end_date": entry.end_date,
                 "model_status": str(entry.status),
                 "tool_status": str(expected),
                 "reasoning": entry.comparison,
@@ -176,8 +201,12 @@ def main() -> None:
             "with the deterministic check:"
         )
         for entry in disagreements:
+            # A period has no single date to name, so show its span instead.
+            subject = entry["normalized_date"] or (
+                f"{entry['start_date']} to {entry['end_date']}"
+            )
             print(
-                f"  {entry['normalized_date']}: model said "
+                f"  {subject}: model said "
                 f"{entry['model_status']}, tool computes {entry['tool_status']}"
             )
     else:
