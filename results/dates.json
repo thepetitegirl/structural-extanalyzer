@@ -3,12 +3,12 @@
     "original_text": "Distributed on Budget Day: 16 February 2024",
     "normalized_date": "2024-02-16",
     "status": "Upcoming",
-    "reasoning": "2024-02-16 is after 2024-01-01"
+    "reasoning": "2024 is the same year as 2024, February is earlier than January, 16 is earlier than 1"
   },
   {
-    "original_text": "Estate Duty does not apply to a person who dies after 15 February 2008.",
+    "original_text": "Estate Duty does not apply to a person who dies after 15 February 2008",
     "normalized_date": "2008-02-15",
     "status": "Expired",
-    "reasoning": "2008-02-15 is before 2024-01-01"
+    "reasoning": "2008 is earlier than 2024, February is the same month as February, 15 is earlier than 1"
   }
 ]

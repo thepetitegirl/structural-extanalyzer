@@ -1,0 +1,41 @@
+{
+  "corporate_income_tax": {
+    "quote": "The basic deficit is revised to $5.4 billion (0.8% of GDP). After factoring in Top-ups to Endowment and Trust Funds of $24.3 billion, Net Investment Returns Contribution (NIRC) of $22.9 billion, Capitalisation of Nationally Significant Infrastructure of $3.5 billion, and Significant Infrastructure Government Loan Act (SINGA) Interest Costs and Loan Expenses of $0.2 billion, the Overall Fiscal Position for Revised FY2023 is a deficit of $3.6 billion (0.5% of GDP). This is larger than the $0.4 billion deficit estimated at Budget 2023.",
+    "value": 28.4,
+    "unit": "billion",
+    "page": 5
+  },
+  "corporate_income_tax_yoy": {
+    "quote": "Corporate Income Tax collections are revised to $ 28.4 billion, which is $4.1 billion (17.0%) higher than the Estimated FY2023 figure due to stronger-than-expected economic growth in 202 2.",
+    "value": 17.0,
+    "page": 5
+  },
+  "total_top_ups": {
+    "quote": "Total 20,352",
+    "value": 20352.0,
+    "unit": "million",
+    "page": 20
+  },
+  "operating_revenue_taxes": {
+    "quote": "Revised FY2023 Operating Revenue is $104.3 billion, which is $7.6 billion (7.9%) higher than the Estimated FY2023 figure. This increase is mainly due to higher collections from Corporate Income Tax, Other Taxes, Vehicle Quota Premiums, Personal Income Tax, Assets Taxes, and Betting Taxes, partially offset by lower collections from the Goods and Services Tax.",
+    "names": [
+      "Corporate Income Tax",
+      "Other Taxes",
+      "Vehicle Quota Premiums",
+      "Personal Income Tax",
+      "Assets Taxes",
+      "Betting Taxes",
+      "Goods and Services Tax"
+    ],
+    "pages": [
+      5,
+      6
+    ]
+  },
+  "fiscal_position": {
+    "quote": "OVERALL FISCAL POSITION 1.72 (0.35) (3.57)",
+    "value": -3.57,
+    "unit": "billion",
+    "page": 8
+  }
+}
