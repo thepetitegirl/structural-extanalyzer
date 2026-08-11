@@ -31,6 +31,7 @@ from src.agents.revenue_agent import revenue_node
 from src.agents.supervisor import decide
 from src.config import load_config
 from src.extraction.prompts import load_prompt
+from src.graph.evaluation import demo_query
 from src.graph.state import NodeCost, SupervisorState
 from src.graph.trace import Trace
 from src.ingestion.download import ensure_pdf
@@ -39,12 +40,10 @@ from src.results import RESULTS_DIR, save_json
 
 RESULTS_PATH = RESULTS_DIR / "supervisor.json"
 
-DECLINE_MESSAGE = (
-    "This question cannot be answered from the document. It covers Singapore "
-    "government revenue and expenditure for FY2024 - Operating Revenue and its "
-    "components, Net Investment Returns Contribution, Total Expenditure, "
-    "Special Transfers, and top-ups to Endowment and Trust Funds."
-)
+# Which demo query `main` answers. The wording itself lives in
+# expectations/demo_queries.yaml alongside what it is expected to demonstrate.
+REQUIRED_QUERY_ID = "required"
+
 
 
 def _timed(node: str, fn):
@@ -124,9 +123,11 @@ def build_graph(model, config, pdf_path: Path | str):
 
         Deliberately a fixed message rather than a model call: the model may
         well know the answer, and letting it reply would produce exactly the
-        ungrounded output the rest of the system prevents.
+        ungrounded output the rest of the system prevents. The wording names
+        what the document covers, so it lives in config.yml with the other
+        document-specific settings.
         """
-        return {"answer": DECLINE_MESSAGE, "declined": True}
+        return {"answer": config.decline_message, "declined": True}
 
     graph = StateGraph(SupervisorState)
 
@@ -223,12 +224,12 @@ def stream_trace(query: str, model=None, config=None, pdf_path=None):
 
 
 def main() -> None:
-    """Answer the two-part query, print the trace, and save it."""
-    query = (
-        "What are the key government revenue streams, and how will the Budget "
-        "for the Future Energy Fund be supported?"
-    )
-    trace = run_query(query)
+    """Answer the two-part query, print the trace, and save it.
+
+    The wording comes from `expectations/demo_queries.yaml`, where the notebook's
+    queries already live, so it is written once rather than here as well.
+    """
+    trace = run_query(demo_query(REQUIRED_QUERY_ID))
 
     print(trace.render())
     print(f"\nsaved to: {save_json(trace, RESULTS_PATH)}")
