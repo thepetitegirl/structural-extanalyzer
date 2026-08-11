@@ -21,6 +21,7 @@ reported, with any disagreement attached.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from pydantic import BaseModel, Field
 
@@ -30,7 +31,10 @@ from src.extraction.dates import find_dates, normalized_with_context
 from src.extraction.prompts import load_prompt
 from src.ingestion.download import ensure_pdf
 from src.llm import get_chat_model
+from src.results import RESULTS_DIR, save_json
 from src.tools.date_tool import DateStatus, classify_date, classify_period
+
+RESULTS_PATH = RESULTS_DIR / "dates.json"
 
 
 class DateClassification(BaseModel):
@@ -85,6 +89,11 @@ def to_output(classified: DateClassifications) -> list[dict]:
         }
         for entry in classified.dates
     ]
+
+
+def save_output(output: list[dict], path: Path | str = RESULTS_PATH) -> Path:
+    """Write the classified dates to disk, returning where they went."""
+    return save_json(output, path)
 
 
 def check(
@@ -186,10 +195,15 @@ def main() -> None:
 
     classified = classify(normalised, config=config)
 
-    print(json.dumps(to_output(classified), indent=2))
+    output = to_output(classified)
+
+    print(json.dumps(output, indent=2))
+
+    saved = save_output(output)
+    print(f"\nsaved to: {saved}")
 
     print()
-    print(score_dates(to_output(classified)).table())
+    print(score_dates(output).table())
 
     # Diagnostic, not part of the answer: does the arithmetic agree?
     checked = check(classified, config=config)

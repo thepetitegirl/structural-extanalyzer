@@ -12,6 +12,9 @@ from src.extraction.schemas import ExtractionResult
 from src.ingestion.download import ensure_pdf
 from src.ingestion.parser import extract_pages
 from src.llm import get_chat_model
+from src.results import RESULTS_DIR, save_json
+
+RESULTS_PATH = RESULTS_DIR / "extraction.json"
 
 DEFAULT_TARGET_YEAR = "Revised FY2023"
 
@@ -72,6 +75,9 @@ def main() -> None:
     result = extract(pdf_path, config.pages, config=config)
 
     print(json.dumps(result.model_dump(), indent=2))
+
+    print(f"\nsaved to: {save_json(result, RESULTS_PATH)}")
+
     print()
     print(f"{config.provider}/{config.model}  temperature={config.temperature}")
     print(score_result(result).table())

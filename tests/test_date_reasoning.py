@@ -5,6 +5,8 @@ classification is caught rather than accepted - which is the point of the
 module.
 """
 
+import json
+
 import pytest
 from langchain_core.runnables import Runnable
 
@@ -13,6 +15,7 @@ from src.extraction.date_reasoning import (
     DateClassifications,
     check,
     classify,
+    save_output,
     to_output,
 )
 from src.tools.date_tool import DateStatus
@@ -97,6 +100,31 @@ def test_reference_date_itself_is_ongoing():
     results = check(_classified(DateStatus.ONGOING, iso="2024-01-01"))
 
     assert results[0]["agrees"]
+
+
+def test_save_output_writes_the_answer_as_json(tmp_path):
+    """The reported answer is written to disk as well as printed."""
+    path = tmp_path / "dates.json"
+
+    save_output(to_output(_classified(DateStatus.UPCOMING)), path)
+
+    assert json.loads(path.read_text())[0]["normalized_date"] == "2024-02-16"
+
+
+def test_save_output_creates_missing_directories(tmp_path):
+    """A fresh clone has no results directory, so saving makes one."""
+    path = tmp_path / "results" / "dates.json"
+
+    save_output(to_output(_classified(DateStatus.UPCOMING)), path)
+
+    assert path.is_file()
+
+
+def test_save_output_returns_the_path(tmp_path):
+    """The caller is told where the file went, so it can report it."""
+    path = tmp_path / "dates.json"
+
+    assert save_output(to_output(_classified(DateStatus.UPCOMING)), path) == path
 
 
 def _classified_period(status, start="2023-12-31", end="2024-02-01"):

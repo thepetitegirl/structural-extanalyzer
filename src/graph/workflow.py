@@ -35,6 +35,9 @@ from src.graph.state import NodeCost, SupervisorState
 from src.graph.trace import Trace
 from src.ingestion.download import ensure_pdf
 from src.llm import get_chat_model
+from src.results import RESULTS_DIR, save_json
+
+RESULTS_PATH = RESULTS_DIR / "supervisor.json"
 
 DECLINE_MESSAGE = (
     "This question cannot be answered from the document. It covers Singapore "
@@ -220,12 +223,15 @@ def stream_trace(query: str, model=None, config=None, pdf_path=None):
 
 
 def main() -> None:
-    """Answer the two-part query and print the trace."""
+    """Answer the two-part query, print the trace, and save it."""
     query = (
         "What are the key government revenue streams, and how will the Budget "
         "for the Future Energy Fund be supported?"
     )
-    print(run_query(query).render())
+    trace = run_query(query)
+
+    print(trace.render())
+    print(f"\nsaved to: {save_json(trace, RESULTS_PATH)}")
 
 
 if __name__ == "__main__":
