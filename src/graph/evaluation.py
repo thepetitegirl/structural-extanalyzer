@@ -1,8 +1,12 @@
 """Part 3: deterministic checks on an open-ended answer.
 
 Parts 1 and 2 score against exact values. Part 3's queries have no single
-correct wording, so the prose cannot be scored - but four things can be, and
+correct wording, so the prose cannot be scored - but five things can be, and
 together they establish that the answer is grounded and correctly routed.
+
+Four of the five read provenance: routing, value and unit, quote against page,
+page against the agent's set. `check_labels` is the one that reads the prose,
+and only far enough to catch a figure renamed on its way into the answer.
 
 Reuses `Check` and `Report` from `src/evaluation.py`, so all three parts render
 their results the same way.
@@ -155,6 +159,89 @@ def check_traceability(trace: Trace, page_text: dict[int, str]) -> Check:
     )
 
 
+# Words too common to identify a label. "Operating Revenue" and "total revenue"
+# share "revenue", so matching on it alone would accept the relabelling this
+# check exists to catch.
+_GENERIC = {
+    "estimated",
+    "the",
+    "of",
+    "for",
+    "in",
+    "and",
+    "to",
+    "a",
+    "total",
+    "revenue",
+    "amount",
+    "percentage",
+    "fy2024",
+    "fy2023",
+}
+
+
+def _distinctive(label: str) -> list[str]:
+    """The words in a label that identify it, lowercased."""
+    return [
+        word
+        for word in re.findall(r"[a-z0-9]+", label.lower())
+        if word not in _GENERIC and len(word) > 2
+    ]
+
+
+def check_labels(trace: Trace) -> Check:
+    """Is each cited figure described the way its finding labelled it?
+
+    Synthesis cannot check itself, and the other checks all read provenance -
+    value, unit, page, routing. None reads the words around the number, so a
+    figure can keep a correct value and still be described as something else.
+
+    A live run relabelled Operating Revenue as "total government revenue" and
+    expanded NIRC to "Non-Interest Revenue", both with the right value, unit
+    and page, and scored 4/4.
+
+    Matching is deliberately loose: the answer may shorten or reorder a label,
+    so one distinctive word near the citation is enough. It catches renaming,
+    not every awkward paraphrase.
+    """
+    answer = _normalise(trace.answer or "")
+    if not answer:
+        return Check("labels", True, "no answer to check")
+
+    by_page: dict[int, list] = {}
+    for citation in trace.citations():
+        by_page.setdefault(citation.page, []).append(citation)
+
+    problems = []
+    for page, citations in sorted(by_page.items()):
+        marker = f"(p.{page})"
+        if marker not in answer:
+            continue
+
+        # The sentence containing the citation is where its label should appear.
+        # Split on sentence ends only - "p.13" holds a period of its own.
+        for sentence in re.split(r"(?<=\))\s*\.\s+|\n", answer):
+            if marker not in sentence:
+                continue
+            if not any(
+                any(word in sentence for word in _distinctive(citation.label))
+                for citation in citations
+            ):
+                labels = " / ".join(citation.label for citation in citations)
+                problems.append(f"p.{page} (found: {labels})")
+                break
+
+    if problems:
+        return Check(
+            "labels",
+            False,
+            f"{len(problems)} figure(s) not described as the finding labelled "
+            "them: " + ", ".join(problems),
+        )
+
+    return Check("labels", True, "every cited figure keeps its finding's wording")
+
+
 def check_page_discipline(trace: Trace, config) -> Check:
     """Did any agent cite a page outside its own set?
 
@@ -186,7 +273,7 @@ def check_page_discipline(trace: Trace, config) -> Check:
 def score_part3(
     trace: Trace, expected: dict, config, page_text: dict[int, str] | None = None
 ) -> Report:
-    """Part 3: run all four checks against one query's trace."""
+    """Part 3: run all five checks against one query's trace."""
     return Report(
         [
             check_routing(trace, expected.get("routed_to", [])),
@@ -195,5 +282,6 @@ def score_part3(
             ),
             check_traceability(trace, page_text or {}),
             check_page_discipline(trace, config),
+            check_labels(trace),
         ]
     )

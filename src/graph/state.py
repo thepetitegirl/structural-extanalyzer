@@ -55,6 +55,11 @@ class Figure(_Cited):
     label: str = Field(
         description="What the figure measures, e.g. 'Future Energy Fund top-up'."
     )
+    # Set by `_attribute` in agents/base.py, never by the model - which is why
+    # it carries no description for the schema. Present only when the quote
+    # resolved to a different page than the model recorded, so a reader can see
+    # the citation was corrected rather than take the final page on trust.
+    claimed_page: int | None = Field(default=None, exclude=False)
 
 
 class Finding(BaseModel):

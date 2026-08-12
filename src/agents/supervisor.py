@@ -4,13 +4,16 @@ The model chooses; deterministic code guards the choice. This is the same split
 as Part 2, where the LLM classifies a date and a tool checks the arithmetic -
 judgement where judgement is needed, code where there is one right answer.
 
-Three guards, all of which record themselves in the trace when they fire:
+One guard, screening the choice against four conditions and recording itself in
+the trace whenever it fires:
 
   1. no agent runs twice - its pages have not changed, so a second pass would
      read identical text;
   2. a hard turn cap, so the graph provably terminates;
   3. no synthesis before any agent has reported, which would produce an
-     ungrounded answer.
+     ungrounded answer;
+  4. no declining once findings exist - out_of_scope asserts the document
+     cannot answer, which the findings contradict.
 
 A guarded route is never presented as a decision: `Decision` keeps both what
 the model chose and what actually ran.
@@ -96,6 +99,10 @@ def route(
         routed_to = _fallback_agent(query, visited, config)
         overridden = "nothing to synthesise; no agent has reported yet"
 
+    elif chose == "out_of_scope" and findings:
+        routed_to = "synthesis"
+        overridden = "findings were gathered, so the document does answer this"
+
     record = Decision(
         turn=turn,
         reasoning=decision.reasoning,
@@ -123,10 +130,17 @@ def decide(state, model, config) -> tuple[str, Decision]:
     # JSON mode has no wrapper to misparse; Pydantic still validates.
     chain = prompt | model.with_structured_output(RouteDecision, method="json_mode")
 
+    # The complement of `visited` is computed here rather than left to the
+    # model. A live run named the unanswered part of the query correctly and
+    # then routed it to the agent that had already reported, which the guard
+    # could only turn into synthesis - the second agent never ran.
+    available = [agent for agent in AGENTS if agent not in visited]
+
     decision = chain.invoke(
         {
             "query": state["query"],
             "visited": ", ".join(visited) or "none",
+            "available": ", ".join(available) or "none",
             "findings": _render_findings(findings),
             "revenue_pages": _render_pages(config, "revenue"),
             "expenditure_pages": _render_pages(config, "expenditure"),

@@ -259,3 +259,20 @@ def test_run_query_returns_a_populated_trace(config, fake_pages, both_agents_scr
     assert trace.agents_invoked == ["revenue_agent", "expenditure_agent"]
     assert len(trace.citations()) == 3
     assert trace.answer
+
+
+def test_synthesis_is_given_the_labels_as_a_closed_list(
+    config, fake_pages, both_agents_script
+):
+    """The findings' labels are stated as a vocabulary to reuse.
+
+    Instructing the model not to rename a figure did not hold: it kept calling
+    Operating Revenue "total revenue" across runs. Listing the labels makes the
+    wording data in the prompt rather than a rule about the data.
+    """
+    _, model = _run(both_agents_script, config, fake_pages)
+
+    synthesis_prompt = model.prompts[-1]
+
+    assert "Refer to each figure by its label" in synthesis_prompt
+    assert "Operating Revenue" in synthesis_prompt

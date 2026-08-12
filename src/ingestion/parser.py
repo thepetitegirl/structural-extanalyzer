@@ -11,11 +11,15 @@ its column, so the prompt must bind it via the header text.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pypdf
 
 PAGE_MARKER = "--- page {page} ---"
+
+# Reads back what PAGE_MARKER writes, so the two cannot drift apart.
+_MARKER_PATTERN = re.compile(r"--- page (\d+) ---")
 
 
 class ParserError(Exception):
@@ -54,3 +58,37 @@ def extract_pages(pdf_path: Path | str, pages: list[int]) -> str:
         sections.append(f"{PAGE_MARKER.format(page=page)}\n{text}")
 
     return "\n\n".join(sections)
+
+
+def _collapse(text: str) -> str:
+    """Collapse whitespace, so pypdf's irregular spacing does not defeat a match."""
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def page_of_quote(quote: str, page_text: str, claimed: int) -> int:
+    """The page whose section contains `quote`, or `claimed` if none does.
+
+    A model can read the right sentence and record the wrong page: related
+    figures appear on several pages, and a value that is correct but cited to
+    the wrong page cannot be verified by a reader following the citation.
+
+    The quote is required to be verbatim, so which page it came from is a
+    lookup rather than a judgement - the same split as Part 2, where the model
+    classifies a date and a tool checks the arithmetic.
+
+    Falls back to the claimed page when the quote is paraphrased and matches
+    nothing. Correcting it is not possible, and dropping the figure would lose a
+    value that may be right; `check_traceability` still reports it.
+    """
+    if not quote.strip():
+        return claimed
+
+    sections = _MARKER_PATTERN.split(page_text)
+    wanted = _collapse(quote)
+
+    # split() yields [before, page, body, page, body, ...] - pair them up.
+    for page, body in zip(sections[1::2], sections[2::2], strict=True):
+        if wanted in _collapse(body):
+            return int(page)
+
+    return claimed

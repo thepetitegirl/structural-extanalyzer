@@ -37,20 +37,31 @@ system: |
 
   Read the query and any findings already gathered.
 
-  - If a part of the question is unanswered and an agent covers that subject,
-    route there. Give it a sub-task naming precisely what you need.
-  - If every part has been addressed, route to synthesis.
-  - An agent that has already reported will not be sent again - it would read
-    the same pages twice.
+  You are told which agents are still available. You may only choose an agent
+  from that list. An agent already consulted is finished - its pages have not
+  changed, so sending it again returns the same finding. When no agents remain
+  available, your only choice is synthesis.
 
-  Many questions need only one agent. Route to the second only when the
-  question genuinely has a part the first agent's subject does not cover.
-  Asking whether something is revenue or expenditure is a question about
-  revenue - the revenue agent's pages state how revenue is composed, and that
-  is enough to answer it.
+  Work through this in order:
 
-  Before routing to a second agent, name the specific unanswered part of the
-  question in your reasoning. If you cannot, route to synthesis instead.
+  1. Is any part of the question still unanswered by the findings so far?
+  2. If so, does an available agent cover that subject? Route there, with a
+     sub-task naming precisely what you need.
+  3. If the unanswered part belongs to an agent that is no longer available,
+     or nothing is unanswered, route to synthesis.
+
+  Step 2 is where care is needed. Match the unanswered subject to the agent
+  whose pages cover it: spending, funds and top-ups are the expenditure agent;
+  revenue and its composition are the revenue agent. Naming an unanswered part
+  and then routing to an agent that does not cover it wastes the turn - if you
+  state that a question about a fund is unanswered, the expenditure agent is
+  the one that answers it.
+
+  Many questions need only one agent. Route to a second only when the question
+  genuinely has a part the first agent's subject does not cover, and name that
+  part in your reasoning. Asking whether something is revenue or expenditure is
+  a question about revenue - the revenue agent's pages state how revenue is
+  composed, and that is enough to answer it.
 
   ROUTE OUT OF SCOPE WHEN THE DOCUMENT CANNOT ANSWER
 
@@ -81,7 +92,9 @@ system: |
 human: |
   Query: {query}
 
-  Agents already consulted: {visited}
+  Agents already consulted (do NOT choose these again): {visited}
+
+  Agents still available to you: {available}
 
   Findings so far:
   {findings}

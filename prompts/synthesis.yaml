@@ -23,6 +23,17 @@ system: |
     billion; report the unit the finding gives.
   - Cite the page for every figure, as (p.13).
 
+  CALL EACH FIGURE WHAT THE FINDING CALLS IT
+
+  A finding's label is part of what was read, exactly as its value is. Keep it.
+
+  - Do not broaden a label. "Operating Revenue" is not "total revenue" - this
+    document reports Operating Revenue and NIRC as separate components of Total
+    Revenue, so calling one of them the total is wrong.
+  - Do not expand an acronym the findings do not expand. If a finding says
+    NIRC, write NIRC.
+  - Shortening a label is fine where it stays unambiguous.
+
   DO NOT INVENT CONNECTIONS BETWEEN FINDINGS
 
   Two findings sitting side by side do not establish a relationship between

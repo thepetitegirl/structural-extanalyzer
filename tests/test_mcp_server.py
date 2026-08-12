@@ -10,7 +10,7 @@ No model and no network is involved.
 import pytest
 
 from src.tools import mcp_server
-from src.tools.date_tool import classify_date, normalize_date
+from src.tools.date_tool import normalize_date
 
 
 def test_server_is_named():
@@ -19,11 +19,15 @@ def test_server_is_named():
 
 
 @pytest.mark.asyncio
-async def test_both_tools_are_registered():
-    """Both date tools are exposed to clients."""
+async def test_only_normalisation_is_exposed():
+    """Normalisation is the one step that runs over the protocol.
+
+    Classification is verified in-process by `date_reasoning.check`, so
+    exposing it here would advertise a route nothing calls.
+    """
     tools = await mcp_server.mcp.list_tools()
 
-    assert {tool.name for tool in tools} == {"normalize_date", "classify_date"}
+    assert {tool.name for tool in tools} == {"normalize_date"}
 
 
 @pytest.mark.asyncio
@@ -42,28 +46,6 @@ def test_normalize_matches_the_underlying_tool():
     text = "Distributed on Budget Day: 16 February 2024"
 
     assert mcp_server.normalize_date(text) == normalize_date.invoke({"text": text})
-
-
-def test_classify_matches_the_underlying_tool():
-    """The MCP wrapper agrees with the @tool version."""
-    result = mcp_server.classify_date("2008-02-15", "2024-01-01")
-
-    assert result == str(
-        classify_date.invoke({"iso_date": "2008-02-15", "reference": "2024-01-01"})
-    )
-
-
-def test_classify_returns_a_plain_string():
-    """The status crosses the protocol as a string, not an enum."""
-    result = mcp_server.classify_date("2024-02-16", "2024-01-01")
-
-    assert isinstance(result, str)
-    assert result == "Upcoming"
-
-
-def test_reference_date_defaults_to_the_required_value():
-    """Omitting the reference uses the fixed default of 2024-01-01."""
-    assert mcp_server.classify_date("2024-02-16") == "Upcoming"
 
 
 def test_unparseable_date_returns_none():

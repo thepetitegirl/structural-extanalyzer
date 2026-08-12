@@ -97,6 +97,8 @@ def build_graph(model, config, pdf_path: Path | str):
         prompt = load_prompt("synthesis")
         chain = prompt | model
 
+        findings = state.get("findings", [])
+
         rendered = "\n\n".join(
             f"{finding.agent} (pages {finding.pages_read}):\n"
             f"{finding.summary}\n"
@@ -105,8 +107,21 @@ def build_graph(model, config, pdf_path: Path | str):
                 f'(p.{figure.page}) "{figure.quote}"'
                 for figure in finding.figures
             )
-            for finding in state.get("findings", [])
+            for finding in findings
         )
+
+        # The labels again, as a closed list. Telling the model not to rename a
+        # figure did not hold - it kept calling Operating Revenue "total
+        # revenue" - so the wording is given as data to reuse rather than as a
+        # rule to obey.
+        labels = [
+            figure.label for finding in findings for figure in finding.figures
+        ]
+        if labels:
+            rendered += (
+                "\n\nRefer to each figure by its label, exactly as written here:\n"
+                + "\n".join(f"  - {label}" for label in dict.fromkeys(labels))
+            )
 
         response, cost = _timed(
             "synthesis",

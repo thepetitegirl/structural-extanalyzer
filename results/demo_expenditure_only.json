@@ -1,0 +1,62 @@
+{
+  "query": "How much is being topped up to the Future Energy Fund, and in what unit does the document state it?",
+  "decisions": [
+    {
+      "turn": 1,
+      "reasoning": "The question asks about the Future Energy Fund, which is related to spending and top-ups, covered by the expenditure agent.",
+      "chose": "expenditure_agent",
+      "routed_to": "expenditure_agent",
+      "overridden": null,
+      "sub_task": "top-ups to the Future Energy Fund and the unit in which it is stated"
+    },
+    {
+      "turn": 2,
+      "reasoning": "The question asks about the Future Energy Fund, which is covered by the expenditure agent's pages.",
+      "chose": "out_of_scope",
+      "routed_to": "synthesis",
+      "overridden": "findings were gathered, so the document does answer this",
+      "sub_task": ""
+    }
+  ],
+  "findings": [
+    {
+      "agent": "expenditure_agent",
+      "sub_task": "top-ups to the Future Energy Fund and the unit in which it is stated",
+      "summary": "The Government will top up the Future Energy Fund with an initial injection of $5.0 billion to invest in critical infrastructure for the energy transition.",
+      "figures": [
+        {
+          "quote": "Future Energy Fund 5,000",
+          "value": 5000.0,
+          "unit": "million",
+          "page": 20,
+          "label": "Top-up to the Future Energy Fund"
+        }
+      ],
+      "pages_read": [
+        16,
+        18,
+        20
+      ]
+    }
+  ],
+  "answer": "The document states that the Future Energy Fund will receive an initial injection of $5.0 billion (p.20).",
+  "costs": [
+    {
+      "node": "supervisor",
+      "seconds": 0.498
+    },
+    {
+      "node": "expenditure_agent",
+      "seconds": 22.871
+    },
+    {
+      "node": "supervisor",
+      "seconds": 9.587
+    },
+    {
+      "node": "synthesis",
+      "seconds": 6.547
+    }
+  ],
+  "declined": false
+}

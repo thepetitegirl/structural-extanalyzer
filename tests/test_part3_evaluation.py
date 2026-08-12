@@ -15,11 +15,11 @@ what matters. Whether it reads well is left to the reader.
 import pytest
 
 from src.graph.evaluation import (
-    demo_query,
     check_figures,
     check_page_discipline,
     check_routing,
     check_traceability,
+    demo_query,
     score_part3,
 )
 from src.graph.state import Decision, Figure, Finding
@@ -90,7 +90,8 @@ def good_trace():
                 ],
             ),
         ],
-        answer="Revenue is $108.6 billion (p.13); the Fund receives $5.0 billion (p.18). "
+        answer="Operating Revenue is $108.6 billion (p.13); the Future Energy Fund "
+        "receives $5.0 billion (p.18). "
         "The document does not identify a specific revenue stream as funding it.",
     )
 
@@ -264,7 +265,7 @@ def test_page_discipline_fails_on_a_page_outside_the_set(config):
 
 
 def test_score_part3_reports_every_check(good_trace, config):
-    """The report covers all four checks in one table."""
+    """The report covers all five checks in one table."""
     pages = {
         13: "Estimated FY2024 Operating Revenue is $108.6 billion",
         18: "Future Energy Fund with an initial injection of $5.0 billion",
@@ -280,7 +281,7 @@ def test_score_part3_reports_every_check(good_trace, config):
         page_text=pages,
     )
 
-    assert len(report.checks) == 4
+    assert len(report.checks) == 5
     assert report.passed
 
 

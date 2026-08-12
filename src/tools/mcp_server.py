@@ -1,11 +1,11 @@
-"""Part 2: local MCP server exposing the date tools.
+"""Part 2: local MCP server exposing the date normalisation tool.
 
 Runs over stdio: a client launches this as a subprocess and they exchange
 JSON-RPC on stdin (its input) and stdout (its output). Nothing is networked and
 nothing is deployed - the server exists only for the lifetime of the client
 that started it.
 
-**This module is transport, not logic.** Each tool below is a one-line wrapper
+**This module is transport, not logic.** The tool below is a one-line wrapper
 around the real implementation in date_tool.py. Nothing is reimplemented here,
 so the unit tests on date_tool.py still cover the behaviour this server serves.
 
@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from src.tools.date_tool import classify_date as _classify
 from src.tools.date_tool import normalize_date as _normalize
 
 mcp = FastMCP("date-tools")
@@ -38,21 +37,8 @@ def normalize_date(text: str) -> str | None:
     return _normalize.invoke({"text": text})
 
 
-@mcp.tool()
-def classify_date(iso_date: str, reference: str = "2024-01-01") -> str:
-    """Classify an ISO date against a reference date.
-
-    Returns "Expired" if the date falls before the reference, "Upcoming" if
-    after, and "Ongoing" if it is the reference date itself.
-
-    The reference is a parameter rather than today's date, so results stay
-    stable over time.
-    """
-    return str(_classify.invoke({"iso_date": iso_date, "reference": reference}))
-
-
 def main() -> None:
-    """Serve the date tools over stdio."""
+    """Serve the date tool over stdio."""
     mcp.run(transport="stdio")
 
 

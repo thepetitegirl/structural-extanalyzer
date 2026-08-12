@@ -1,0 +1,90 @@
+{
+  "query": "What are the key government revenue streams for FY2024?",
+  "decisions": [
+    {
+      "turn": 1,
+      "reasoning": "The query asks for key government revenue streams, which falls under the revenue_agent's pages.",
+      "chose": "revenue_agent",
+      "routed_to": "revenue_agent",
+      "overridden": null,
+      "sub_task": "list the key government revenue streams"
+    },
+    {
+      "turn": 2,
+      "reasoning": "The question is about government revenue streams, which the revenue_agent covers.",
+      "chose": "revenue_agent",
+      "routed_to": "synthesis",
+      "overridden": "revenue_agent has already reported; its pages have not changed",
+      "sub_task": "list the key government revenue streams"
+    }
+  ],
+  "findings": [
+    {
+      "agent": "revenue_agent",
+      "sub_task": "list the key government revenue streams",
+      "summary": "The key government revenue streams are Corporate Income Tax, Personal Income Tax, Goods and Services Tax, Other Taxes, Stamp Duty, Assets Taxes, Vehicle Quota Premiums, Fees and Charges, Customs, Excise and Carbon Taxes, Betting Taxes, Motor Vehicle Taxes, Withholding Tax, Statutory Boards' Contributions, and Others.",
+      "figures": [
+        {
+          "quote": "Corporate Income Tax 27.2%",
+          "value": 27.2,
+          "unit": "percent",
+          "page": 9,
+          "label": "Corporate Income Tax"
+        },
+        {
+          "quote": "Personal Income Tax 16.8%",
+          "value": 16.8,
+          "unit": "percent",
+          "page": 9,
+          "label": "Personal Income Tax"
+        },
+        {
+          "quote": "Goods and Services Tax 15.7%",
+          "value": 15.7,
+          "unit": "percent",
+          "page": 9,
+          "label": "Goods and Services Tax"
+        },
+        {
+          "quote": "Estimated FY2024 Operating Revenue is $108.6 billion",
+          "value": 108.6,
+          "unit": "billion",
+          "page": 13,
+          "label": "Estimated FY2024 Operating Revenue"
+        },
+        {
+          "quote": "Estimated FY2024 NIRC is $23.5 billion",
+          "value": 23.5,
+          "unit": "billion",
+          "page": 15,
+          "label": "Estimated FY2024 NIRC"
+        }
+      ],
+      "pages_read": [
+        9,
+        13,
+        15
+      ]
+    }
+  ],
+  "answer": "The key government revenue streams for FY2024 are:\n\n- Corporate Income Tax: 27.2 percent (p.9)\n- Personal Income Tax: 16.8 percent (p.9)\n- Goods and Services Tax: 15.7 percent (p.9)\n- Other Taxes: no specific percentage or amount mentioned\n- Stamp Duty: no specific percentage or amount mentioned\n- Assets Taxes: no specific percentage or amount mentioned\n- Vehicle Quota Premiums: no specific percentage or amount mentioned\n- Fees and Charges: no specific percentage or amount mentioned\n- Customs, Excise and Carbon Taxes: no specific percentage or amount mentioned\n- Betting Taxes: no specific percentage or amount mentioned\n- Motor Vehicle Taxes: no specific percentage or amount mentioned\n- Withholding Tax: no specific percentage or amount mentioned\n- Statutory Boards' Contributions: no specific percentage or amount mentioned\n- Others: no specific percentage or amount mentioned\n\nThe estimated total operating revenue for FY2024 is $108.6 billion (p.13). \n\nThe estimated Non-Interest Revenue Contribution (NIRC) for FY2024 is $23.5 billion (p.15).",
+  "costs": [
+    {
+      "node": "supervisor",
+      "seconds": 0.316
+    },
+    {
+      "node": "revenue_agent",
+      "seconds": 0.718
+    },
+    {
+      "node": "supervisor",
+      "seconds": 0.262
+    },
+    {
+      "node": "synthesis",
+      "seconds": 0.422
+    }
+  ],
+  "declined": false
+}

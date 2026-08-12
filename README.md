@@ -7,82 +7,76 @@ MOF *Analysis of Revenue and Expenditure FY2024* - in three parts:
 * Tool calling via a local MCP server
 * Multi-agent supervisor via the LangGraph framework
 
+## Contents
+
+| Section | |
+|---|---|
+| [The three parts](#the-three-parts) | How the pieces fit together |
+| [Instructions to implement](#instructions-to-implement) | Install, run each part, read the saved results |
+| [Layout](#layout) | What lives where |
+| [Part 1: extraction](#part-1-extraction) | Five fields from their cited pages |
+| [Part 2: dates and tools](#part-2-dates-and-tools) | Dates normalised over MCP, classified by the LLM |
+| [Part 3: multi-agent supervisor](#part-3-multi-agent-supervisor) | Two specialists, one supervisor, a full trace |
+| [Part 4: Results](#results) | All three parts, all seven queries |
+| [Part 5: Limitations](#limitations) | Limitations | 
+| [Part 6: Future work](#future-work) | Future work | 
+
 ## The three parts
 
 ```mermaid
 flowchart LR
-    PDF[("source data<br/>unstructured PDF")] --> PARSE["pypdf parser"]
+    PDF[("unstructured PDF")] --> PARSE["pypdf parser"]
+    CFG["config.yml"] -.-> PARSE
 
-    subgraph P1[" "]
+    subgraph PART1["PART 1: extraction"]
         direction TB
-        P1T["<b>PART 1</b><br/>extraction"]
-        P1T --> P1P["prompt engineering"]
-        P1P --> P1L["LLM + schema"]
-        P1L --> P1R["five fields<br/>value + unit + page + quote"]
-        P1R --> P1S["score_result()"]
+        P1P["prompt engineering"] --> P1L["LLM + schema"]
+        P1L --> P1R["five fields<br/>value, unit, page, quote"]
+        P1R --> P1S["score_result"]
     end
 
-    subgraph P2[" "]
+    subgraph PART2["PART 2: dates and tools"]
         direction TB
-        P2T["<b>PART 2</b><br/>dates and tools"]
-        P2T --> P2F["LLM finds dates as written"]
-        P2F --> P2N["normalize_date<br/>via local MCP server"]
+        P2F["LLM finds dates as written"] --> P2N["normalize_date<br/>over local MCP server"]
         P2N --> P2C["LLM classifies vs 2024-01-01"]
         P2C --> P2V["classify_date verifies"]
     end
 
-    subgraph P3[" "]
+    subgraph PART3["PART 3: supervisor"]
         direction TB
-        P3T["<b>PART 3</b><br/>supervisor"]
-        P3T --> P3S{"supervisor<br/>routes each turn"}
-        P3S -->|revenue| P3R["revenue agent"]
-        P3S -->|expenditure| P3E["expenditure agent"]
-        P3R -.->|finding| P3S
-        P3E -.->|finding| P3S
-        P3S -->|done| P3Y["synthesis + trace"]
-        P3S -->|out of scope| P3D["decline"]
+        P3S{"supervisor<br/>routes each turn"}
+        P3S --> P3R["revenue agent"]
+        P3S --> P3E["expenditure agent"]
+        P3R -.-> P3S
+        P3E -.-> P3S
+        P3S --> P3Y["synthesis + trace"]
+        P3S --> P3D["decline"]
     end
 
-    PARSE --> P1T
-    PARSE --> P2T
-    PARSE --> P3T
-
-    CFG["config.yml"] -.-> PARSE
+    PARSE --> P1P
+    PARSE --> P2F
+    PARSE --> P3S
 
     classDef shared fill:#e8e8e8,stroke:#666,color:#000
-    classDef title fill:#ffffff,stroke:#333,stroke-width:2px,color:#000
     classDef part1 fill:#dbeafe,stroke:#2563eb,color:#000
     classDef part2 fill:#dcfce7,stroke:#16a34a,color:#000
     classDef part3 fill:#fef3c7,stroke:#d97706,color:#000
     classDef check fill:#fae8ff,stroke:#a21caf,color:#000
 
     class PDF,PARSE,CFG shared
-    class P1T,P2T,P3T title
     class P1P,P1L,P1R part1
     class P2F,P2N,P2C part2
     class P3S,P3R,P3E,P3Y,P3D part3
     class P1S,P2V check
-
-    style P1 fill:#f8fbff,stroke:#2563eb
-    style P2 fill:#f7fdf9,stroke:#16a34a
-    style P3 fill:#fffdf5,stroke:#d97706
 ```
 
-Grey is shared infrastructure, blue Part 1, green Part 2, amber Part 3. The two
-purple nodes are the deterministic checks - `score_result()` compares against
-known values, `classify_date` verifies what the LLM concluded.
-
-No database and no vector store: the page holding each answer is known, so
-retrieval is already solved. The model reads the supplied text and copies
-values into typed fields - it does not compute or recall.
-
-## Quick start
+## Instructions to implement
 
 ```bash
 uv sync
 cp .env.example .env          # add GROQ_API_KEY (free, no card)
 
-uv run pytest                 # 189 tests, no key or network needed
+uv run pytest                 # 236 tests, no key or network needed
 uv run ruff check .
 
 # Part 1 - extraction
@@ -91,7 +85,6 @@ uv run python -m src.extraction.extractor      # five fields, scored
 # Part 2 - dates and tools
 uv run python -m src.extraction.dates          # dates found and normalised
 uv run python -m src.extraction.date_reasoning # classified vs 2024-01-01, checked
-uv run python -m src.tools.mcp_client          # smoke check: list the MCP server's tools
 
 # Part 3 - supervisor
 uv run python -m src.graph.workflow            # the required query, with trace
@@ -100,36 +93,72 @@ uv run python -m src.graph.workflow            # the required query, with trace
 The source PDF is downloaded from the URL in `config.yml` on first use and
 cached in `data/`, which is gitignored - a fresh clone needs only the config.
 
-Notebooks carry the evidence for each decision:
+Each part also writes its answer to `results/`, which is committed, so every
+output below can be read without running anything or spending API budget:
 
-| Notebook | Shows |
-|---|---|
-| `00_parser_comparison.ipynb` | Why pypdf, measured against PyMuPDF and pdfplumber |
-| `01_value_exploration.ipynb` | What the correct answers are, derived from the document |
-| `02_extraction.ipynb` | Model selection and the prompt's evolution, scored |
-| `03_dates.ipynb` | MCP server, normalisation, classification with a check |
-| `04_supervisor.ipynb` | The graph, seven demo queries, and the decision trace |
+| File | Written by | Holds |
+|---|---|---|
+| `results/extraction.json` | `src.extraction.extractor` | The five fields, each with value, unit, page and quote |
+| `results/dates.json` | `src.extraction.date_reasoning` | Both dates, normalised and classified, with the model's reasoning |
+| `results/supervisor.json` | `src.graph.workflow` | The full trace: decisions, findings, citations, answer and node costs |
+
+
+## Layout
+
+```
+config.yml        # pdf url, page bindings, model, agent pages, reference date
+.env              # GROQ_API_KEY (gitignored; see .env.example)
+prompts/          # prompts for LLM and agents
+expectations/     # known-correct values and the Part 3 query set
+results/          # each part's answer, committed so it can be read
+src/
+  config.py       # config.yml + .env -> one settings object
+  llm.py          # LLM for all parts
+  evaluation.py   # Check/Report scoring for parts 1 and 2
+  results.py      # save_json(): each part's answer -> results/
+  ingestion/      # fetch the PDF, extract pages with --- page N --- markers
+  extraction/     # parts 1 and 2: schemas, prompts, extraction, dates
+  tools/          # part 2: the date tools, and the MCP server and client
+  agents/         # part 3: the supervisor and the two specialists
+  graph/          # part 3: state, the graph, the trace, and evaluation for part 3
+tests/            # 236 tests; model stubbed, no network
+```
+
 
 ## Part 1: extraction
 
-All five fields extract correctly from their cited pages. As seen below, the fields are of different nature such as floats and list of strings.
+Part 1 involves extracting five fields from their cited pages. As seen below, the fields consist different data types such as floats and list of strings.
 
 | Field | Value | Unit | Page | Note |
 |---|---|---|---|---|
-| Corporate Income Tax | 28.4 | billion | 5 | Prose - stated in a sentence, so context disambiguates it |
-| Year-on-year change | 17.0 | % | 5 | Prose - same sentence as the amount, stated not calculated |
-| Total top-ups | 20,352 | million | 20 | **Table row** - a "Total" line under a ($ million) heading |
-| Taxes in Operating Revenue | 7 names | - | 5-6 | Prose - names spread across several paragraphs |
-| Overall Fiscal Position | -3.57 | billion | 8 | **Table row** - one figure per year column, with negative value in parentheses |
+| Corporate Income Tax | 28.4 | billion | 5 | Prose: stated in a sentence, so context disambiguates it |
+| Year-on-year change | 17.0 | % | 5 | Prose: same sentence as the amount, stated not calculated |
+| Total top-ups | 20,352 | million | 20 | **Table row**: a "Total" line under a ($ million) heading |
+| Taxes in Operating Revenue | 7 names | - | 5-6 | Prose: names spread across several paragraphs |
+| Overall Fiscal Position | -3.57 | billion | 8 | **Table row** : one figure per year column, with negative value in parentheses |
 
-Two of the five come off table rows, which is a core criterion in choosing the most appropriate parser, as shown below. 
+Two of the five are of table rows, which is a core criterion in choosing the most appropriate parser, as shown below. 
 
-### Parser: pypdf
+### 1.0 LLM and provider
 
-Measured in [`notebooks/00_parser_comparison.ipynb`](notebooks/00_parser_comparison.ipynb).
+The LLM used for extraction `llama-3.1-8b-instant`, served through Groq, at `temperature: 0`. All settings can be found in `config.yml`.
 
-**The parsing unit is the page.** Each target field is identified by the page
-it appears on - "page 5", "page 20" - so pages are the natural unit, and `extract_pages()` returns only those
+| Why Groq | |
+|---|---|
+| Free, no card | The constraint that excluded GPT-4 and Claude on cost, not merit |
+| Nothing downloaded | Ollama needs 2-5 GB of disk and RAM per model |
+| Structured output | Supports Pydantic schemas; `langchain-huggingface` raises `NotImplementedError` |
+| Correct values | A local model returned `28400000000.0`, folding the unit into the value |
+| The trade | 100k tokens/day - which is why answers are committed to `results/` rather than regenerated |
+
+**Consideration 1: Temperature 0 is what makes prompt iteration measurable.** The model takes
+the most likely token each time, so the same pages yield the same figures, and
+a changed result can be attributed to the prompt rather than to sampling. To make it reproducible, temperature 0 is used.
+
+### 1.1 Parser: pypdf
+
+**Consideration: Page is used as the parsing unit.** Each target field is identified by the page
+it appears on - "page 5", "page 20" - so pages are chosen as the natural unit, and [`extract_pages()`](src/ingestion/parser.py) returns only those
 requested, each prefixed with a `--- page N ---` marker. Those markers are what
 make the page binding enforceable: the prompt can say PAGE 5 ONLY because the
 model can see where page 5 ends.
@@ -137,25 +166,19 @@ model can see where page 5 ends.
 Chunking by paragraph or token count would break that, leaving one
 undifferentiated block with no way to tell which page a figure came from.
 
-Five parsers were considered: `pypdf`, `PyMuPDF`, `pdfplumber`, `Docling` and `OCR`. Two were ruled out on inspection as Docling's ML layout analysis solves a problem a born-digital PDF does not have, and OCR needs raster images, of which this document has none. The remaining three were measured through **row integrity** and **latency**.
-
-As seen above in extraction, since two out of five fields are obtained from table rows, it is important to ensure that row integrity is maintained so that the information can be obtained accurately.
+Five parsers were considered: `pypdf`, `PyMuPDF`, `pdfplumber`, `Docling` and `OCR`. The latter two parsers were ruled out on inspection as Docling's ML layout analysis solves a problem a born-digital PDF does not have, and OCR needs raster images, of which this document has none. The remaining three were measured through **row integrity** and **latency**.
 
 > **Row integrity** means the table row survives extraction as one line - the
 > label still attached to its figures. The Corporate Income Tax row on page 8
 > reads `Corporate Income Tax 23.07 24.26 28.38 23.0 17.0` in the document.
 
-What each parser returns for that row:
+What each parser returns for that row (from initial assessment):
 
 | Parser | Text Output for the Corporate Income Tax row | Result |
 |---|---|:---:|
 | `pypdf` | `Corporate Income Tax 23.07 24.26 28.38 23.0 17.0` | Pass |
 | `pdfplumber` | `Corporate Income Tax 23.07 24.26 28.38 23.0 17.0` | Pass |
 | `PyMuPDF` | `Corporate Income Tax` - figures detached | **Fail** |
-
-Note: For `PyMuPDF`, the figures become detached from their label, so the model may attach them to the wrong row and return a wrong answer with no sign anything went wrong.
-
-Note 2: `pdfplumber` is the only parser with a feature called table extractor. However, it detected no tables on page 8, because detection is line-based and this table has no ruling lines. Since the other two parsers have no table extractor at all, no parser yields a cell grid here.
 
 In addition, **latency** is also considered as a secondary criterion to ensure that the information can be parsed fast to facilitate a more efficient extraction. 
 
@@ -170,93 +193,75 @@ In addition, **latency** is also considered as a secondary criterion to ensure t
 **Correctness decides; speed only breaks ties.** Based on both criteria, `pypdf` is chosen as the parser due to its accuracy in parsing the table content and is 1.8x faster than `pdfplumber`.
 
 
-### Prompt engineering
 
-Every prompt is a YAML file with a `system` section and a `human` section, so
-wording can be revised without touching Python. The split is deliberate: models
-weight system instructions as standing rules and the human message as the
-request, so the page bindings and conventions live in `system` while the
-document text and the ask live in `human`.
+### 1.1a Extracting structured information
 
-**Every exchange is a single turn** - one call, one answer. No prompt continues
-a conversation, so there is no `assistant` section; each call carries
-everything the model needs. Where a run makes several calls, as the Part 3
-supervisor does, each is independent and state is threaded through the graph
-rather than through message history.
+Once the pages are parsed, the schema decides what shape the answer comes back in. It is what makes the output structured rather than prose: without it the
+model returns a sentence that has to be parsed afterwards, and parsing free
+text is where a wrong figure slips through unnoticed.
 
-The first prompt got three of five fields right. It named the correct page for
-every field and still read the wrong one twice, because it treated the page
-citations as preferences rather than constraints. Only the final prompt
-(`prompts/extraction.yaml`) is shipped; the first version's recorded result
-and the three changes that fixed it are documented in the notebook.
+The five fields are Pydantic models in `src/extraction/schemas.py`, bound to
+the model with `with_structured_output(ExtractionResult)`. The model fills the
+schema rather than writing an answer, so the output is typed before any code
+touches it.
 
-Wording proved load-bearing: changing "read both pages to the end" to "read
-those pages to the end" changed which taxes were returned, reproducibly at
-temperature 0.
-
-## Part 2: dates and tools
-
-| Date | Page | Normalised | Status vs 2024-01-01 |
-|---|---|---|---|
-| Distribution | 1 | 2024-02-16 | Upcoming |
-| Estate Duty | 36 | 2008-02-15 | Expired |
-
-The split is deliberate: the model finds dates in prose because phrasing
-varies, and a tool parses them because that has one right answer. The
-the classification is reached by reasoning rather than by comparison, so the
-model decides and `classify_date` verifies afterwards - detection rather than
-prevention, since prevention would mean not asking the model at all.
-
-`src/tools/mcp_server.py` exposes both tools over stdio and is what the
-pipeline uses. The `@tool` decorators remain as an automatic fallback; both
-share one implementation, so the server is a transport rather than a second
-copy.
-
-**The model is assumed to find the dates.** Both are stated plainly on their
-cited pages - "Distributed on Budget Day: 16 February 2024" and "Estate Duty
-does not apply to a person who dies after 15 February 2008" - so locating them
-is not the hard part, and no fallback search runs if the model misses one.
-
-What happens if it does: the field is required by the schema, so a missing date
-fails validation rather than passing as empty. A date the model finds but
-`normalize_date` cannot parse returns None, and that date is reported as skipped
-rather than classified. Neither case is silent, but neither is recovered from
-either.
-
-## Part 3: multi-agent supervisor
-
-Agents route unconditionally back to the supervisor, which is the only node
-that decides. A fixed chain would have no decision to trace, and the trace is the point.
-
-**Seven demo queries, seven correct routes** - single-agent both ways, two
-agents collaborating, and two queries declined without invoking either.
-Queries live in `evaluation/demo_queries.yaml` so one can be added or disabled
-without touching code.
-
-**Page 13 is scoped to revenue only, deliberately.** It carries both the
-revenue total and the top-ups sentence, so keeping it out of the expenditure
-set means neither agent can answer the combined query alone. The collaboration
-is structural, and asserted in the tests.
-
-**The supervisor's choice is guarded.** Three deterministic rules - no agent
-twice, a turn cap, no synthesis before any finding - and each records itself in
-the trace when it fires, so a forced route is never presented as a decision.
-
-### Scoring an open-ended answer
-
-Prose has no single correct wording, so it is not scored. Four things are:
-
-| Check | Catches |
+| In the schema | Why |
 |---|---|
-| Routing | An agent that should have run and did not, or one that ran needlessly |
-| Figures | A wrong value, or the right value with the wrong unit |
-| Traceability | A quote that does not appear on the page it cites |
-| Page discipline | A figure from a page the agent was never given |
+| `value: float` | A figure arrives as a number, so `28.4` cannot come back as "about $28 billion" |
+| `unit: Literal["million", "billion"]` | Units are recorded as the page states them, never converted - p.20 says $million and everything else says $billion, and silently normalising would hide a mismatch |
+| `page: int = Field(gt=0)` | Every value carries where it was read from |
+| `quote: str` | The verbatim text it was read from, with a validator rejecting a blank one |
 
-## Assumptions
+The last two are what make the answer checkable. This is so as terms such as "Corporate Income Tax" appear
+on multiple pages with different values, so a bare number cannot be verified - the
+page and quote let a reader confirm the model read the intended row.
 
-**Only the cited pages are read.** A correctness measure, not an optimisation.
-"Corporate Income Tax" appears eight times across seven pages:
+The schema also rejects bad output instead of passing it on. A missing field, a page number of 0, a unit that is not million or billion, or an empty quote all raise an error rather than returning something that looks fine. This ensures that the LLM extracts the right number with an appropriate text citation. 
+
+### 1.2 Prompt engineering
+The next part of the task involves extracting the relevant information through prompt engineering in Large Language Model (LLM).
+The prompt template can be found at `prompts/extraction.yaml`, which is a configurable file that is separated from the core architecture. Users can first fill in the page numbers and document text to be queried at `config.yml`, where the configurations will be adapted into the prompt template. The prompt template can also be edited. 
+
+Configurations that are filled in `config.yml` 
+
+| Filled in | From | Reaches the prompt as |
+|---|---|---|
+| Which page each field is bound to | `field_pages` in `config.yml`, via `page_variables()` | `{page_cit}`, `{page_top_ups}` - one placeholder per field |
+| The text of those pages | `extract_pages()`, each page prefixed `--- page N ---` | `{page_text}` |
+
+> Note: both the page number and the markers must be present. A page number
+> binds nothing if the model cannot see where that page starts, and the markers
+> bind nothing if the prompt never names a page.
+
+
+**Consideration 1: Guardrails in the extraction prompt.** It is important to ensure that the LLM is grounded with the extraction with no hallucination of the extraction of numerical data. As such, the following areas are included as guardrails in the prompt 
+
+| Guardrail | Wording | Closes |
+|---|---|---|
+| Scope binding | "PAGE 5 ONLY", one page named per field | A right value read from a page the field was never bound to |
+| Copy, do not compute | "Do NOT calculate anything. Not a difference, not a percentage, not a sum" | A derived figure that is arithmetically sound and appears nowhere in the document |
+| No prior knowledge | "Do NOT use prior knowledge of Singapore budgets" | The model answering from training rather than from the text supplied |
+| Cite or omit | "If you are about to write a number, first find it verbatim in the text. If you cannot point to it, you must not write it" | An uncheckable number - every field carries the page and quote it came from |
+
+**Consideration 3: Additional constraints.** Additional constraints attached to the page that the LLM governs.
+
+1. **Binding.** The value must come from the cited page and nowhere else -
+   "Corporate Income Tax is on page 5" is a suggestion, "PAGE 5 ONLY" is a
+   limit. The prompt also names the trap: the top-ups total appears on p.8 as
+   24.32 billion, so it says to take p.20's 20,352 million rather than the
+   first plausible match.
+2. **Scoped.** A general preference - *prefer prose over tables* - applies only
+   on the cited page. Left general it competes with the citation instead of
+   sitting under it, and returns p.5's prose (-3.6) where the fiscal position
+   is p.8's table figure (-3.57).
+3. **Withheld.** The tax list is constrained to prose on the cited pages, but
+   the expected count is deliberately left out. Stating it would hand the model
+   the answer, and a scorer cannot check an answer the prompt supplied - here
+   being more specific meant leaving a detail out.
+
+### 1.3 Assumptions
+
+**Only the cited pages are read.** A correctness measure, not an optimisation.For instance, "Corporate Income Tax" appears eight times across seven pages:
 
 | Page | Value | What it is |
 |---|---|---|
@@ -268,8 +273,7 @@ Prose has no single correct wording, so it is not scored. Four things are:
 | 26 | 28,380 / 28,029 | same figures in $million |
 | 27 | 3.9% | share of GDP |
 
-All plausible. They differ by year, unit and kind, and nothing in the number
-says which. Restricting the input eliminates seven wrong answers before the
+Restricting the input eliminates seven wrong answers before the
 model reads anything.
 
 **The tax list counts revenue lines, not their constituents.** Pages 5-6 name
@@ -278,24 +282,75 @@ description of one of them - "Other Taxes, which include the Foreign Worker
 Levy, Water Conservation Tax, Land Betterment Charge, and Annual Tonnage Tax"
 (p.5) - and are not counted separately, since the document presents them as
 what Other Taxes consists of rather than as revenue lines in their own right.
-Counting them would give 11.
 
-**Each field is read from the page cited for it,** not from wherever the figure
-is most precise. Page 5 says "$28.4 billion"; page 8's table says 28.38. The
-citation decides.
 
-**Units are recorded, not converted.** Page 20 states $million while the other
-pages state $billion. Normalising would hide a 1000x error.
+## Part 2: dates and tools
 
-**Target year is Revised FY2023,** except top-ups, which page 20 states for
-FY2024. That follows from the page citations rather than a consistent year
-choice, so no single target year is correct for all five fields.
+Part 2 extends from part 1 by including MCP tools and LLM reasoning. In this part, date related information from two fields are extracted, normalized into ISO format through MCP tool and LLM is used for reasoning by comparing against a reference date `2024-01-01`. The comparison and fields are shown below
 
-**"Latest Actual Fiscal Position" is read as the latest available figure** —
-the Revised FY2023 deficit, -3.57. Table 1.1's strictly *Actual* column is
-FY2022 (1.72, a surplus); that reading would break with every other field,
-labelled 2024 while the cited pages state FY2023. The rejected
-alternative is noted here rather than silently dropped.
+| Status | Means | For a single date | For a period |
+|---|---|---|---|
+| Expired | Already passed | Falls before the reference | Its end falls before the reference |
+| Upcoming | Still to come | Falls after the reference | Its start falls after the reference |
+| Ongoing | A period currently active | Only when it *is* the reference - a point has no span to be inside | The reference falls within it, inclusive |
+
+| Field | Page | Normalised | Status vs 2024-01-01 |
+|---|---|---|---|
+| Distribution | 1 | 2024-02-16 | Upcoming |
+| Estate Duty | 36 | 2008-02-15 | Expired |
+
+### 2.1 How the dates are extracted
+
+| # | Step | Who | What happens |
+|---|---|---|---|
+| 1 | Select pages | code | `date_pages` binds each date to a page - 1 and 36 - and `extract_pages()` returns only those |
+| 2 | Extracts date | model | Fills `DocumentDates`: the sentence verbatim, the date **exactly as written**, and the page |
+| 3 | Normalise | tool | [`normalize_date`](src/tools/date_tool.py) turns "16 February 2024" into `2024-02-16`, called over the local MCP server |
+| 4 | Classify | model | LLM classifies extracted data against `reference_date` into Expired / Upcoming / Ongoing |
+| 5 | Verify | tool | `classify_date` (deterministic Python tool) recomputes the status and flags any disagreement |
+
+**Only step 3 crosses the MCP protocol,** and `normalize_date` is the only tool
+the server exposes. It runs over the server as a subprocess, with the
+in-process `@tool` as a fallback; `main` reports which route it used. 
+
+
+The answer is written to `results/dates.json`:
+
+```json
+[
+  {
+    "original_text": "Distributed on Budget Day: 16 February 2024",
+    "normalized_date": "2024-02-16",
+    "status": "Upcoming",
+    "reasoning": "2024-02-16 is after 2024-01-01"
+  },
+  {
+    "original_text": "Estate Duty does not apply to a person who dies after 15 February 2008.",
+    "normalized_date": "2008-02-15",
+    "status": "Expired",
+    "reasoning": "2008-02-15 is before 2024-01-01"
+  }
+]
+```
+
+`reasoning` is used to record the comparison the model made, so the status can be
+audited rather than taken on trust. Without it, a wrong classification looks
+exactly like a right one.
+
+
+**Consideration 1: the LLM is grounded in the document's own words.** The model
+never converts a date and the tool never interprets one. Step 2 hands over the
+wording as the document writes it, so `normalize_date` parses that rather than
+the model's idea of it - a full `strptime` match first, then a regex to pull a
+date out of a longer sentence. Anything unparseable returns `None`, never a
+guess.
+
+**Consideration 2: a failure is surfaced, not absorbed.** Both dates are stated
+plainly on their cited pages, so no retry or fallback search runs if the model
+misses one. A missing date fails schema validation; a date `normalize_date`
+cannot parse is reported as skipped rather than classified.
+
+### 2.2 Assumptions
 
 **Dates are explicit calendar dates.** Open-ended expressions - "till present",
 "with immediate effect" - are out of scope; `normalize_date` returns None
@@ -303,140 +358,288 @@ rather than inventing a boundary.
 
 **Dates are written in full.** The document spells them out - "16 February
 2024" - as a government publication does, so that is the format the tool is
-built for. Three further shapes are accepted as cheap insurance rather than
-because the document needs them:
+built for. Three further shapes are accepted due to the needs of the document which are:
 
-| Shape | Example |
+| Shape | Example | |
+|---|---|---|
+| Day month year | 16 February 2024 | The document's own form |
+| Month day, year | February 16, 2024 | Accepted |
+| ISO | 2024-02-16 | Accepted |
+| Slashed, day first | 16/02/2024 | Accepted, read day first - a US-style 02/16/2024 is misread rather than rejected |
+| Abbreviated month | 16 Feb 2024 | Accepted |
+| Ordinals, partial or non-English dates | 16th February 2024; "2024"; "16 Février" | Not parsed |
+
+
+## Part 3: multi-agent supervisor
+
+Part 3 focuses on handling complex queries such as *"What are the key revenue streams, and how will
+the Future Energy Fund be supported?"*, where the question spans across two subjects sitting on different
+pages.
+
+A multi-agent system is built using a Langgaraph architecture which consists of a supervisor that routes and two
+specialist agents (revenue agent and expenditure agent) each bound to their own pages. There are also two terminal nodes, which are
+synthesis, which writes the answer, and decline, for a query the document
+cannot address.
+
+A run of the query above generally takes three turns:
+
+| Turn | Potential routes | Definition |
+|---|---|---|
+| 1 | `revenue_agent` | Specialises in identifying and extracting information on revenue, from pp. 9, 13, 15 |
+| 2 | `expenditure_agent` | Specialises in finding and analysing information on government spending, from pp. 16, 18, 20 |
+| 3 | `synthesis` | Writes the answer from the two findings, citing the figures each agent reported |
+
+> Note 1: a query covering one subject only takes two turns - one agent, then
+> synthesis. The turn count follows from how many subjects the question spans,
+> but synthesis always runs, since it is what turns findings into an answer.
+
+> Note 2: six pages covering the information the query needs are fixed in
+> `config.yml`, three per agent. Narrowing what each agent can see is what keeps
+> a plausible figure from the wrong page out of reach.
+
+
+**How routing works**
+
+**Reasoning** Every turn, including
+after an agent has reported, the model is given the query, which agents have
+already been consulted, their summaries so far, and the page ranges each agent
+covers. It returns a `RouteDecision`: a stated rationale, the chosen route, and
+the sub-task for that agent. `reasoning` is declared before `next` in the
+schema, so the justification is produced before the choice rather than fitted
+to it afterwards.
+
+**Deterministic check through a guard.** The model's answer is not routed
+directly. `route()` in [supervisor.py](src/agents/supervisor.py) screens it in
+plain Python - a list membership test and an integer comparison, no model
+involved - so the graph terminates, never answers from nothing, and never
+discards what it gathered:
+
+| Condition | Forces |
 |---|---|
-| Day month year | 16 February 2024 |
-| Month day, year | February 16, 2024 |
-| ISO | 2024-02-16 |
-| Slashed, day first | 16/02/2024 |
+| The chosen agent has already reported | `synthesis` |
+| `max_turns` reached | `synthesis` |
+| `synthesis` chosen with no findings | An agent, so there is something to synthesise |
+| `out_of_scope` chosen with findings present | `synthesis` |
 
-Abbreviated months ("16 Feb 2024") parse. Ordinals ("16th February 2024"), a
-year or month alone, and non-English months do not. Slashed dates are read day
-first, so a US-style 02/16/2024 would be misread rather than rejected - a
-reason to keep the full written form as the assumption rather than a fallback.
+When it fires, the trace keeps both the choice and the override, so a forced route never reads as the model's decision. 
 
-**The reference date is fixed at 2024-01-01,** not today, so results stay
-stable over time.
+### 3.2 Inside one agent turn
 
-**The document does not identify a revenue stream funding the Future Energy
-Fund,** and the answer says so. Government revenue is not earmarked to
-particular funds; naming one would be wrong however fluent.
+What an agent does with a sub-task, taken from the saved run in
+`results/supervisor.json`. The supervisor routed to `revenue_agent` with the
+sub-task *"list the key government revenue streams"*:
 
-**Structured output uses JSON mode rather than tool-calling.** Over a long
-generation the tool-call wrapper drifts from the format Groq's parser accepts,
-and the request is rejected even when the content is correct. JSON mode also
-works across model families where tool-calling support varies.
+| Step | What happens |
+|---|---|
+| 1 | [`extract_pages()`](src/ingestion/parser.py) loads specific pages for a specific scope, pp. 9, 13, 15 only, each prefixed `--- page N ---` |
+| 2 | The page text and the sub-task fill the agent's prompt - the document never enters graph state |
+| 3 | The model returns an `AgentReport`: a prose summary plus a list of figures, each with value, unit, page and the quote it was read from |
+| 4 | [`page_of_quote`](src/ingestion/parser.py) resets each figure's page to the marker section its quote actually falls under |
+| 5 | The report becomes a `Finding`, tagged with the agent's name and the pages it read, and appended to state |
 
-**Temperature is 0** throughout, so the same input yields the same output.
+It returned five figures:
 
-**Everything is document-specific.** The parser verdict, page citations, unit
-conventions and the two-fiscal-year structure are particular to this
-publication. Re-run the notebooks for any new source.
+```
+Corporate Income Tax                  27.2 percent   p.9
+Personal Income Tax                   16.8 percent   p.9
+Goods and Services Tax                15.7 percent   p.9
+Estimated FY2024 Operating Revenue   108.6 billion   p.13
+Estimated FY2024 NIRC                 23.5 billion   p.15
+```
 
-## Model and provider
+The finding returns to the supervisor, not to the other agent - each agent sees
+only its own pages and its own sub-task. The supervisor then decides who works
+next and writes their brief: here it routed to the expenditure agent for the
+second part of the query, which repeats the same five steps over pp. 16, 18, 20.
 
-`llama-3.1-8b-instant` on Groq, used by every part. Constraint: free tier, no
-card - GPT-4 and Claude are excluded on cost, not merit.
+Step 4 earns its place in that sequence. The model recorded NIRC as p.13 while
+quoting p.15's sentence, and both pages state the figure - so the value gives no
+sign anything is wrong. Only the quote does, and since it must be verbatim, the
+page follows from it.
 
-| | Ollama (local) | Groq | Gemini |
+### 3.3 Demo queries
+The agentic system is tested on 7 queries, covering a wide variety of queries
+
+| Query type | Agents invoked |
+|---|---|:---:|
+| Revenue only | revenue | 
+| Expenditure only | expenditure | 
+| Both - revenue streams and the Future Energy Fund | revenue, expenditure |
+| Out of scope | none - declined | 
+
+Queries are be configured in `expectations/demo_queries.yaml`
+
+**Consideration 1: Choice of specific multiple pages.** The six pages are
+shortlisted from the query and fixed in `config.yml`. It spans across revenue and expenditure, which sit in
+different sections, and each subject then spans pages of its own such as the total,
+its composition and the supporting detail are all stated separately.
+
+| Agent | Pages | What is on them |
+|---|---|---|
+| `revenue_agent` | 9, 13, 15 | Revenue breakdown, the FY2024 narrative, NIRC |
+| `expenditure_agent` | 16, 18, 20 | Table 2.1, the top-ups prose, Table 2.4 |
+
+As the information is disjoint and spans pages, the split into a narrow range is also what
+gives each agent a subject it can answer and the other cannot.
+
+> Note: page 13 carries both the revenue total and the top-ups sentence, and is
+> assigned to `revenue_agent` alone. That keeps the combined query out of reach
+> of either agent on its own.
+
+**Consideration 2: Restricting the input is a correctness measure** rather than
+an optimisation. Several target terms recur across the document with different
+values as seen in part 1, so an agent granted the full text will surface a figure that is
+plausible in isolation and wrong in context - with nothing in the value itself
+to indicate which.
+
+Fixing the page sets in configuration, rather than letting an agent retrieve
+what it judges relevant, is also what makes the citations checkable:
+`check_page_discipline` compares every cited page against the agent's
+configured set, and a figure from outside it was never read. Under retrieval any
+page would be legitimate, so the check would have nothing to assert.
+
+
+### 3.4 Evaluation
+
+As the generated answer is free text, there is no single correct wording to
+score it against. Five deterministic checks, written in Python rather than
+judged by a model, are applied to the run instead. Each is binary (pass or fail), and a query
+passes only when all five do.
+
+| Check | Catches | Compared against |
+|---|---|---|
+| Routing | An agent that should have run and did not, or one that ran needlessly | Expected agents in `demo_queries.yaml` |
+| Figures | A wrong value, or the right value with the wrong unit | Required values in `demo_queries.yaml`, within a 0.005 tolerance |
+| Traceability | A quote that does not appear on the page it cites | The text of the page it cites |
+| Page discipline | A figure from a page the agent was never given | The agent's page set in `config.yml` |
+| Labels | A figure renamed on its way into the answer | The label the finding gave it |
+
+> Note: the last three compare against the document, the configuration and the
+> findings rather than declared expectations, so they hold for any query.
+
+### 3.5 Assumptions
+
+**Each agent runs at most once per query.** One pass over an agent's pages is
+assumed to be enough, which keeps the graph provably terminating and the cost
+bounded at one model call per agent. What is given up is a second call under a
+*different* sub-task, which might surface something the first was not asked for.
+
+**Each query is answered from scratch, with no LangGraph memory.** Out of scope
+here: every query is self-contained, so no checkpointer and no `thread_id`.
+`SupervisorState` carries findings and decisions between nodes within one run
+and is discarded when it returns - short-term state, not memory. Persisting it
+would break the guard, which reads `visited` as "who has reported on this
+query".
+
+## Results
+
+Saved to `results/` by each part's `main()`, so the output can be read without
+re-running anything.
+
+| Part | Result | Detail |
+|---|---|---|
+| 1 - extraction | Pass | 5/5 fields correct on value, unit and page |
+| 2 - dates | Pass | 2/2 normalised and classified correctly |
+| 3 - supervisor | Pass | 5/5 on the required query |
+
+In addition, for part 3, all seven demo queries were run against the current build:
+
+| Query | Checks | Agents invoked | Notes |
 |---|---|---|---|
-| Disk / RAM | 2.0-5.2 GB / 2.5-5.6 GB | none | none |
-| Rate limit | **none** | 100k tokens/day, 6k/min | tight free tier |
-| Correct value | **No** - returned 28400000000.0 | Yes | - |
+| `revenue_only` | 5/5 | revenue | Two turns |
+| `expenditure_only` | 5/5 | expenditure | Two turns |
+| `required` | 5/5 | revenue, expenditure | Three turns |
+| `collaboration` | 5/5 | expenditure, revenue | Three turns |
+| `nirc_classification` | 4/5 | revenue, expenditure | Additional routing to expenditure was conducted, though not needed |
+| `out_of_scope_sensible` | Declined | none | Correct |
+| `out_of_scope_nonsense` | Declined | none | Correct |
 
-Neither free hosted tier supports sustained development. Groq's daily allowance
-was exhausted in one session of prompt iteration: an extraction call is ~3.2k
-tokens and a supervisor query ~7k. Local models have no limit but fold the unit
-into the value, failing silently.
+Every citation verifies against the page it cites, and every figure keeps the
+label its finding gave it. The single failing check is routing, where an
+unnecessary agent cost a turn but not the answer - recorded under Known
+limitations.
 
-Groq was chosen because a hard failure is recoverable where a wrong number is
-not, but this is a project constraint rather than a clean win.
+### Trace: the required query
 
-## Known limitations
+The decision trace records the
+supervisor's process rather than a log of which functions ran, which takes four
+things: why it routed there (`reasoning`, stated before the choice), that it
+*was* a choice (`chose` alongside `routed_to`), when the system overruled it
+(`overridden`, naming the condition), and what each agent contributed (one
+`Finding` each, with its pages and figures). A fixed chain would answer this
+query too and have no decisions in it to trace.
 
-- **pypdf reads table content, not table structure.** `28.38` arrives on the
-  right line but carries no marker placing it in the *Revised FY2023* column;
-  the prompt binds it via the header. No fallback parser helps.
-- **Chart values are drawn as shapes, not stored as data,** so no parser or OCR
-  recovers them. Read the corresponding table instead.
-- **One citation in Part 3 is unverifiable.** The revenue agent reports NIRC at
-  $23.5 billion citing page 13, but quotes page 15's wording. Both pages state
-  the figure, and the agent blended them. The value is right; the citation
-  cannot be checked, and the traceability check catches it. A prompt fix was
-  attempted and did not work.
-- **Two agents make routing hard to distinguish from luck.** With an obviously
-  two-part query, a coin flip is defensible about half the time. The
-  supervisor's stated reasoning is the only evidence of judgement, which is why
-  it is a required field rather than optional.
-- **Synthesis cannot check itself.** It sees findings rather than the document,
-  so a wrong inference drawn from two correct findings would pass every check.
-- **Page scoping does work a real system would need retrieval for.** At 37
-  pages the page holding each answer is known, so retrieval is solved by the page
-  citations rather than by the system.
-- **The schemas name their fields, so they are specific to one document.**
-  `ExtractionResult` names five fields and `DocumentDates` names two, with
-  descriptions saying where each lives in this publication. That is what makes
-  absence detectable - a missing field fails validation rather than passing as
-  a short list - and the descriptions carry into the prompt, so they do work
-  rather than document. A different source would need the classes rewritten
-  rather than reconfigured. Building them at run time from configuration would
-  generalise this, at the cost of static typing on the result and of validation
-  that can name what is missing.
-- **Nothing is persisted between runs, which would not hold at scale.** The
-  document is cached after its first download, but page text is re-extracted
-  each run and no result is stored. That is affordable here - extraction takes
-  75-300 ms against LLM calls of 1-7 seconds - and a cache would cost more in
-  invalidation logic than it saves. Over many documents or repeated queries the
-  balance inverts, and a database would be worth adding for extraction results,
-  traces, and an index over documents. A vector store would only become
-  necessary once the page holding an answer is no longer known in advance.
-
-## Layout
+`Trace.render()` prints six blocks. The shape, with values elided:
 
 ```
-config.yml                     # pdf url, page bindings, model, agent pages
-.env                           # GROQ_API_KEY (gitignored; see .env.example)
-prompts/                       # every prompt, edited without touching Python
-  extraction.yaml              #   part 1, the version in use
-  dates.yaml                   #   part 2: locate dates on pp.1, 36
-  date_reasoning.yaml          #   part 2: classify vs the fixed reference
-  supervisor.yaml              #   part 3: routing, reasoning before choice
-  revenue_agent.yaml           #   part 3: revenue specialist
-  expenditure_agent.yaml       #   part 3: expenditure specialist
-  synthesis.yaml               #   part 3: forbids inventing a revenue link
-evaluation/
-  expected.yaml                # known-correct values for parts 1 and 2
-  demo_queries.yaml            # part 3 queries and expected routing
-src/
-  config.py                    # config.yml + .env -> one settings object
-  llm.py                       # get_chat_model(provider, model), Groq only
-  evaluation.py                # Check/Report scoring for parts 1 and 2
-  ingestion/
-    download.py                # ensure_pdf(): fetch once, cache in data/
-    parser.py                  # extract_pages(): pypdf, --- page N --- markers
-  extraction/
-    schemas.py                 # part 1 fields, each with page provenance
-    prompts.py                 # load_prompt(name) -> ChatPromptTemplate
-    extractor.py               # part 1 chain and entry point
-    dates.py                   # part 2: find dates, normalise via the tool
-    date_reasoning.py          # part 2: LLM classifies, checker verifies
-  tools/
-    date_tool.py               # normalize_date, classify_date as @tool
-    mcp_server.py              # the same tools over stdio via FastMCP
-    mcp_client.py              # MCP session helpers and tool listing
-  agents/
-    base.py                    # AgentReport, run_agent()
-    revenue_agent.py           # thin wrapper over base, pages 9, 13, 15
-    expenditure_agent.py       # thin wrapper over base, pages 16, 18, 20
-    supervisor.py              # RouteDecision, guards, route()
-  graph/
-    state.py                   # SupervisorState, Finding, Decision, NodeCost
-    trace.py                   # Trace: table(), summary(), render()
-    workflow.py                # build_graph(), run_query(), stream_trace()
-    evaluation.py              # score_part3() and the four checks
-notebooks/                     # evidence for each decision (table above)
-tests/                         # 189 tests; model stubbed, no network
+QUERY: <the question asked>
+
+SUPERVISOR DECISIONS
+turn  chose              routed to          why
+--------------------------------------------------------------------------------
+1     <route>            <route>            <the model's stated reasoning>
+2     <route>            <route>            <the model's stated reasoning>
+3     <route>            <route>            <the model's stated reasoning>
+                         OVERRIDDEN:        <which condition fired, where they differ>
+
+AGENT FINDINGS
+agent                pages            figures
+<agent>              <pages read>     <count>
+
+CITATIONS
+      <value> <unit>  p.<n>  <label>
+                             "<the sentence it was read from>"
+
+ANSWER
+<the synthesised prose, citing a page for every figure>
+
+NODE COSTS
+node                   seconds
+<node>                 <time>
+------------------------------
+total                  <time>
+
+<n> decisions, <n> agents invoked, <n> overrides, <n> figures cited
 ```
+
+Together these show not just the answer but how it was reached: which routes
+were taken and why, where the guard overruled the model, what each agent
+contributed, and which sentence in the document every number came from. The
+filled-in record for the required query is in `results/supervisor.json`.
+
+## Assumptions that hold across all three parts
+
+**Part 3 uses JSON mode rather than tool-calling.** The supervisor and both
+agents pass `method="json_mode"`; Parts 1 and 2 use LangChain's default, which
+is tool-calling. The difference is generation length. Part 3 asks for a stated
+rationale before the choice, and over that length the tool-call wrapper drifts
+from the format Groq's parser accepts, which leads to the request being rejected even when the
+content is correct. Parts 1 and 2 emit short structured objects and never hit
+it, so they are left on the default rather than changed for symmetry.
+
+**Every exchange is a single turn** No prompt continues
+a conversation, so there is no `assistant` section; each call carries everything
+the model needs. Where a run makes several calls, as the Part 3 supervisor does,
+each is independent and state is threaded through the graph rather than through
+message history.
+
+**The model quotes accurately but may cite the wrong page.** It is assumed to be
+grounded in the text it was given, so the quotes it returns are verbatim. However, as LLM has a tendency hallucinate, 
+[`page_of_quote`](src/ingestion/parser.py) replaces the model's page with the
+one whose text contains the quote. Where no match is found, the model's page is
+kept and the traceability check reports it. 
+
+## Limitations
+
+* Pages and target content must be defined up front to ensure that the LLM/agent is extracting the right data due to variations of data. This may not be feasible if future requests focus on specific topics without knowledge of pages 
+* Routing is inconsistent between runs. As the routing logic is highly dependent on the supervisor agent, the same query can take a different path each time. Temperature 0 removes sampling, not server-side variation
+* Every query is a single turn, and not scaled for multi-turn conversation as memory is not stored
+* For this task, the reasoning in synthesis is not verified, as the focus is the accuracy of the extraction and the generated output. The labels check catches a figure renamed on its way into the answer, but an inference drawn from correct figures can still be wrong and pass every check - human review is what closes that gap
+* Extraction and implementation is still very specific and dependent towards the source data
+* The model's raw output is corrected before it is recorded - `page_of_quote` resolves a figure's page from its quote, and the synthesis prompt supplies the labels to reuse. Both are deliberate, but they mean the trace shows the corrected result rather than what the model first produced. However, further checks have not been conducted
+
+## Future work
+
+* Retrieval over the whole document by removing hand-picked page sets and the document-specific schemas
+* Persist results and traces onto a database rather than stored in local directory
+* Extend scalability and adaptability of the solution into other documents

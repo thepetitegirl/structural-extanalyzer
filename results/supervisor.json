@@ -3,56 +3,35 @@
   "decisions": [
     {
       "turn": 1,
-      "reasoning": "The revenue_agent covers government revenue streams, and the expenditure_agent covers government spending, including the Budget for the Future Energy Fund.",
+      "reasoning": "The query has two parts: government revenue streams and the Budget for the Future Energy Fund. The revenue_agent covers government revenue streams, and the expenditure_agent covers government spending, including funds and top-ups.",
       "chose": "revenue_agent",
       "routed_to": "revenue_agent",
       "overridden": null,
-      "sub_task": "Identify key government revenue streams"
+      "sub_task": "list the key government revenue streams"
     },
     {
       "turn": 2,
-      "reasoning": "The question about key government revenue streams has been addressed, but the Budget for the Future Energy Fund requires information from the expenditure_agent.",
+      "reasoning": "The question about key government revenue streams is already answered, but the Budget for the Future Energy Fund's support is still unanswered, which falls under the expenditure agent's subject.",
       "chose": "expenditure_agent",
       "routed_to": "expenditure_agent",
       "overridden": null,
-      "sub_task": "the Budget for the Future Energy Fund"
+      "sub_task": "support for the Future Energy Fund"
     },
     {
       "turn": 3,
-      "reasoning": "The question about key government revenue streams has been addressed by the revenue_agent, but the question about the Budget for the Future Energy Fund requires information from the expenditure_agent.",
-      "chose": "expenditure_agent",
+      "reasoning": "The key government revenue streams are unanswered, and the revenue_agent covers this subject.",
+      "chose": "out_of_scope",
       "routed_to": "synthesis",
-      "overridden": "expenditure_agent has already reported; its pages have not changed",
-      "sub_task": "Provide details about the Budget for the Future Energy Fund"
+      "overridden": "findings were gathered, so the document does answer this",
+      "sub_task": ""
     }
   ],
   "findings": [
     {
       "agent": "revenue_agent",
-      "sub_task": "Identify key government revenue streams",
-      "summary": "The key government revenue streams are Corporate Income Tax, Personal Income Tax, Goods and Services Tax, and Net Investment Returns Contribution. The Operating Revenue is estimated to be $108.6 billion (15.1% of GDP) in FY2024, with an increase of $4.3 billion (4.2%) over the Revised FY2023 Operating Revenue of $104.3 billion.",
+      "sub_task": "list the key government revenue streams",
+      "summary": "The key government revenue streams are Corporate Income Tax, Personal Income Tax, Goods and Services Tax, Other Taxes, Stamp Duty, Assets Taxes, Vehicle Quota Premiums, Fees and Charges, Customs, Excise and Carbon Taxes, Betting Taxes, Motor Vehicle Taxes, Withholding Tax, Statutory Boards' Contributions, and Others.",
       "figures": [
-        {
-          "quote": "Estimated FY2024 Operating Revenue is $108.6 billion (15.1% of GDP).",
-          "value": 108.6,
-          "unit": "billion",
-          "page": 13,
-          "label": "Operating Revenue"
-        },
-        {
-          "quote": "an increase of $4.3 billion (4.2%) over the Revised FY2023 Operating Revenue of $104.3 billion.",
-          "value": 4.3,
-          "unit": "billion",
-          "page": 13,
-          "label": "Increase in Operating Revenue"
-        },
-        {
-          "quote": "the Revised FY2023 Operating Revenue of $104.3 billion.",
-          "value": 104.3,
-          "unit": "billion",
-          "page": 13,
-          "label": "Revised FY2023 Operating Revenue"
-        },
         {
           "quote": "Corporate Income Tax 27.2%",
           "value": 27.2,
@@ -75,11 +54,18 @@
           "label": "Goods and Services Tax"
         },
         {
+          "quote": "Estimated FY2024 Operating Revenue is $108.6 billion",
+          "value": 108.6,
+          "unit": "billion",
+          "page": 13,
+          "label": "Estimated FY2024 Operating Revenue"
+        },
+        {
           "quote": "Estimated FY2024 NIRC is $23.5 billion",
           "value": 23.5,
           "unit": "billion",
-          "page": 13,
-          "label": "Net Investment Returns Contribution"
+          "page": 15,
+          "label": "Estimated FY2024 NIRC"
         }
       ],
       "pages_read": [
@@ -90,15 +76,15 @@
     },
     {
       "agent": "expenditure_agent",
-      "sub_task": "the Budget for the Future Energy Fund",
-      "summary": "The Budget for the Future Energy Fund is $5.0 billion, which will be used to invest in critical infrastructure for the energy transition.",
+      "sub_task": "support for the Future Energy Fund",
+      "summary": "The Government will establish the Future Energy Fund with an initial injection of $5.0 billion to invest in critical infrastructure for the energy transition.",
       "figures": [
         {
-          "quote": "Future Energy Fund 5,000",
+          "quote": "the Government will establish the Future Energy Fund with an initial injection of $5.0 billion",
           "value": 5000.0,
           "unit": "million",
-          "page": 20,
-          "label": "Budget for the Future Energy Fund"
+          "page": 18,
+          "label": "Initial injection for the Future Energy Fund"
         }
       ],
       "pages_read": [
@@ -108,31 +94,31 @@
       ]
     }
   ],
-  "answer": "The key government revenue streams are Corporate Income Tax, Personal Income Tax, Goods and Services Tax, and Net Investment Returns Contribution.\n\nThe Operating Revenue is estimated to be $108.6 billion (p.13) in FY2024, with an increase of $4.3 billion (p.13) over the Revised FY2023 Operating Revenue of $104.3 billion (p.13).\n\nThe Budget for the Future Energy Fund is $5.0 billion (p.20).\n\nThe document does not identify any specific revenue stream as funding the Budget for the Future Energy Fund. The Budget for the Future Energy Fund is part of the overall Budget, funded by the revenue streams of Corporate Income Tax (27.2% of Operating Revenue, p.9), Personal Income Tax (16.8% of Operating Revenue, p.9), Goods and Services Tax (15.7% of Operating Revenue, p.9), and Net Investment Returns Contribution ($23.5 billion, p.13).",
+  "answer": "The key government revenue streams are Corporate Income Tax, Personal Income Tax, Goods and Services Tax, Other Taxes, Stamp Duty, Assets Taxes, Vehicle Quota Premiums, Fees and Charges, Customs, Excise and Carbon Taxes, Betting Taxes, Motor Vehicle Taxes, Withholding Tax, Statutory Boards' Contributions, and Others.\n\nThe Budget for the Future Energy Fund will be supported by the overall government revenue. The key components of the government revenue are:\n\n- Corporate Income Tax: 27.2 percent (p.9)\n- Personal Income Tax: 16.8 percent (p.9)\n- Goods and Services Tax: 15.7 percent (p.9)\n- Estimated FY2024 Operating Revenue: $108.6 billion (p.13)\n- Estimated FY2024 NIRC: $23.5 billion (p.15)\n\nThe document does not identify any specific revenue stream as funding the Future Energy Fund. The Initial injection for the Future Energy Fund is $5.0 billion (p.18), which is part of the overall Budget, funded by the revenue streams mentioned above.",
   "costs": [
     {
       "node": "supervisor",
-      "seconds": 3.947
+      "seconds": 0.551
     },
     {
       "node": "revenue_agent",
-      "seconds": 22.654
+      "seconds": 0.795
     },
     {
       "node": "supervisor",
-      "seconds": 12.7
+      "seconds": 0.459
     },
     {
       "node": "expenditure_agent",
-      "seconds": 26.054
+      "seconds": 8.069
     },
     {
       "node": "supervisor",
-      "seconds": 8.549
+      "seconds": 11.646
     },
     {
       "node": "synthesis",
-      "seconds": 10.005
+      "seconds": 9.791
     }
   ],
   "declined": false

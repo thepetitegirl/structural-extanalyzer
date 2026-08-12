@@ -202,7 +202,7 @@ def test_decide_fills_empty_slots_with_placeholders(config):
 
     decide({"query": "What are the revenue streams?"}, model, config)
 
-    assert "Agents already consulted: none" in model.prompts[0]
+    assert "consulted (do NOT choose these again): none" in model.prompts[0]
     assert "(none yet)" in model.prompts[0]
 
 
@@ -233,3 +233,59 @@ def test_decide_requests_route_decisions_in_json_mode(config):
 
     assert model.schemas == [RouteDecision]
     assert model.methods == ["json_mode"]
+
+
+def test_decide_lists_the_agents_still_available(config):
+    """The prompt states who remains, rather than leaving it to be inferred.
+
+    A live run named the unanswered part of the query correctly and then chose
+    the agent that had already reported it, so the complement of "visited" is
+    computed here rather than by the model.
+    """
+    model = ScriptedModel([_decision("expenditure_agent")])
+    state = {
+        "query": "q",
+        "findings": [_finding()],
+        "visited": ["revenue_agent"],
+        "decisions": ["turn 1"],
+    }
+
+    decide(state, model, config)
+
+    assert "still available to you: expenditure_agent" in model.prompts[0]
+
+
+def test_decide_says_none_when_every_agent_has_reported(config):
+    """With no agent left, the prompt says so rather than showing an empty slot."""
+    model = ScriptedModel([_decision("synthesis")])
+    state = {
+        "query": "q",
+        "findings": [_finding()],
+        "visited": ["revenue_agent", "expenditure_agent"],
+        "decisions": ["turn 1", "turn 2"],
+    }
+
+    decide(state, model, config)
+
+    assert "still available to you: none" in model.prompts[0]
+
+
+def test_will_not_decline_once_an_agent_has_reported(config):
+    """Declining discards findings already gathered.
+
+    out_of_scope means the document cannot answer the query. Findings are
+    evidence that it can, so the two cannot both hold - a live run gathered six
+    figures across both agents and then routed to out_of_scope, which would
+    have replaced them with the decline message.
+    """
+    decision, record = route(
+        _decision("out_of_scope"),
+        visited=["revenue_agent", "expenditure_agent"],
+        findings=[_finding()],
+        turn=3,
+        config=config,
+    )
+
+    assert decision == "synthesis"
+    assert record.was_overridden
+    assert record.chose == "out_of_scope"

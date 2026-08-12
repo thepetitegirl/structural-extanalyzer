@@ -1,0 +1,167 @@
+{
+  "query": "The Government tops up Endowment and Trust Funds by $20.4 billion. Where does the money come from?",
+  "decisions": [
+    {
+      "turn": 1,
+      "reasoning": "The question asks where the money comes from, which is a spending question, specifically about top-ups to Endowment and Trust Funds.",
+      "chose": "expenditure_agent",
+      "routed_to": "expenditure_agent",
+      "overridden": null,
+      "sub_task": "top-ups to Endowment and Trust Funds"
+    },
+    {
+      "turn": 2,
+      "reasoning": "The question asks where the money for the top-ups comes from, which is a revenue question.",
+      "chose": "revenue_agent",
+      "routed_to": "revenue_agent",
+      "overridden": null,
+      "sub_task": "Identify the source of the $20.4 billion for Fund top-ups"
+    },
+    {
+      "turn": 3,
+      "reasoning": "The question asks where the money for Fund top-ups comes from, which is a revenue question since it involves the source of the funds.",
+      "chose": "out_of_scope",
+      "routed_to": "synthesis",
+      "overridden": "findings were gathered, so the document does answer this",
+      "sub_task": ""
+    }
+  ],
+  "findings": [
+    {
+      "agent": "expenditure_agent",
+      "sub_task": "top-ups to Endowment and Trust Funds",
+      "summary": "The Government will top up various Endowment and Trust Funds in Budget 2024. The total amount committed to Fund top-ups is $20.4 billion. The breakdown of the top-ups includes $6.0 billion to the GST Voucher Fund, $1.0 billion to the Progressive Wage Credit Scheme Fund, $2.0 billion to the Edusave Endowment Fund, $1.8 billion to the National Research Fund, $2.0 billion to the National Productivity Fund, $2.0 billion to the Financial Sector Development Fund, and $5.0 billion to the Future Energy Fund. Other Fund top-ups include $500 million to the Skills Development Fund, $50 million to the Public Transport Fund, and $2 million to the Legal Aid Fund.",
+      "figures": [
+        {
+          "quote": "In total, $20.4 billion will be committed to Fund top-ups (see Table 2.4).",
+          "value": 20400.0,
+          "unit": "million",
+          "page": 18,
+          "label": "Total top-ups to Endowment and Trust Funds"
+        },
+        {
+          "quote": "Goods and Services Tax Voucher Fund 6,000",
+          "value": 6000.0,
+          "unit": "million",
+          "page": 20,
+          "label": "Top-up to GST Voucher Fund"
+        },
+        {
+          "quote": "Future Energy Fund 5,000",
+          "value": 5000.0,
+          "unit": "million",
+          "page": 20,
+          "label": "Top-up to Future Energy Fund"
+        },
+        {
+          "quote": "Edusave Endowment Fund  2,000",
+          "value": 2000.0,
+          "unit": "million",
+          "page": 20,
+          "label": "Top-up to Edusave Endowment Fund"
+        },
+        {
+          "quote": "Financial Sector Development Fund 2,000",
+          "value": 2000.0,
+          "unit": "million",
+          "page": 20,
+          "label": "Top-up to Financial Sector Development Fund"
+        },
+        {
+          "quote": "National Productivity Fund 2,000",
+          "value": 2000.0,
+          "unit": "million",
+          "page": 20,
+          "label": "Top-up to National Productivity Fund"
+        },
+        {
+          "quote": "National Research Fund 1,800",
+          "value": 1800.0,
+          "unit": "million",
+          "page": 20,
+          "label": "Top-up to National Research Fund"
+        },
+        {
+          "quote": "Progressive Wage Credit Scheme Fund 1,000",
+          "value": 1000.0,
+          "unit": "million",
+          "page": 20,
+          "label": "Top-up to Progressive Wage Credit Scheme Fund"
+        },
+        {
+          "quote": "Skills Development Fund 500",
+          "value": 500.0,
+          "unit": "million",
+          "page": 20,
+          "label": "Top-up to Skills Development Fund"
+        },
+        {
+          "quote": "Public Transport Fund 50",
+          "value": 50.0,
+          "unit": "million",
+          "page": 20,
+          "label": "Top-up to Public Transport Fund"
+        },
+        {
+          "quote": "Legal Aid Fund 2",
+          "value": 2.0,
+          "unit": "million",
+          "page": 20,
+          "label": "Top-up to Legal Aid Fund"
+        }
+      ],
+      "pages_read": [
+        16,
+        18,
+        20
+      ]
+    },
+    {
+      "agent": "revenue_agent",
+      "sub_task": "Identify the source of the $20.4 billion for Fund top-ups",
+      "summary": "The $20.4 billion for Fund top-ups is not explicitly stated as a source, but it is mentioned as Top-ups to Endowment and Trust Funds in the FY2024 Budget.",
+      "figures": [
+        {
+          "quote": "factoring in Top-ups to Endowment and Trust Funds of $20.4 billion",
+          "value": 20.4,
+          "unit": "billion",
+          "page": 13,
+          "label": "Top-ups to Endowment and Trust Funds"
+        }
+      ],
+      "pages_read": [
+        9,
+        13,
+        15
+      ]
+    }
+  ],
+  "answer": "The Government tops up Endowment and Trust Funds by $20.4 billion (p.18). The document does not identify any specific revenue stream as funding this amount.\n\nThe breakdown of the top-ups includes $6.0 billion to the GST Voucher Fund (p.20), $1.0 billion to the Progressive Wage Credit Scheme Fund (p.20), $2.0 billion to the Edusave Endowment Fund (p.20), $1.8 billion to the National Research Fund (p.20), $2.0 billion to the National Productivity Fund (p.20), $2.0 billion to the Financial Sector Development Fund (p.20), and $5.0 billion to the Future Energy Fund (p.20). Other Fund top-ups include $500 million to the Skills Development Fund (p.20), $50 million to the Public Transport Fund (p.20), and $2 million to the Legal Aid Fund (p.20).\n\nThe total amount committed to Fund top-ups is $20.4 billion (p.18), which is part of the overall Budget. The document does not specify the revenue streams that fund these top-ups.",
+  "costs": [
+    {
+      "node": "supervisor",
+      "seconds": 8.514
+    },
+    {
+      "node": "expenditure_agent",
+      "seconds": 27.485
+    },
+    {
+      "node": "supervisor",
+      "seconds": 18.624
+    },
+    {
+      "node": "revenue_agent",
+      "seconds": 11.679
+    },
+    {
+      "node": "supervisor",
+      "seconds": 11.447
+    },
+    {
+      "node": "synthesis",
+      "seconds": 12.898
+    }
+  ],
+  "declined": false
+}

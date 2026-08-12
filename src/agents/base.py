@@ -17,7 +17,8 @@ from pydantic import BaseModel, Field
 
 from src.extraction.prompts import load_prompt
 from src.graph.state import Figure, Finding
-from src.ingestion.parser import extract_pages
+from src.ingestion.parser import extract_pages, page_of_quote
+
 
 class AgentReport(BaseModel):
     """What a specialist returns before it is wrapped with its provenance."""
@@ -61,6 +62,25 @@ def run_agent(
         agent=f"{agent}_agent",
         sub_task=sub_task,
         summary=report.summary,
-        figures=report.figures,
+        figures=[_attribute(figure, page_text) for figure in report.figures],
         pages_read=pages,
     )
+
+
+def _attribute(figure: Figure, page_text: str) -> Figure:
+    """Set a figure's page to the one whose text contains its quote.
+
+    The prompt already instructs the model to read the marker above the
+    sentence it is quoting, and it still misattributes: related figures appear
+    on several pages, and a value correct on the wrong page reads as plausible.
+    Because the quote must be verbatim, the page follows from it - so it is
+    resolved here rather than left to the model to get right.
+    """
+    resolved = page_of_quote(figure.quote, page_text, figure.page)
+
+    if resolved == figure.page:
+        return figure
+
+    # Keep what the model claimed, so the correction shows in the trace rather
+    # than replacing the citation silently.
+    return figure.model_copy(update={"page": resolved, "claimed_page": figure.page})

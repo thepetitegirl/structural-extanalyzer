@@ -201,3 +201,91 @@ def test_both_agents_share_one_implementation(config, fake_pages):
     )
 
     assert set(revenue_update) == set(expenditure_update) == {"findings", "visited"}
+
+
+# --- page attribution ------------------------------------------------------
+
+
+def test_a_misattributed_quote_is_corrected_to_the_page_holding_it(config, fake_pages):
+    """A verbatim quote decides the page, not the number the model recorded.
+
+    The live run misattributed NIRC to page 13 while quoting the sentence from
+    page 15. Both were in the agent's set, so only the quote reveals it.
+    """
+    figure = Figure(
+        value=23.5,
+        unit="billion",
+        page=13,
+        label="NIRC",
+        quote="text of page 15",
+    )
+
+    finding = run_agent("revenue", "any.pdf", "t", _model(_report([figure])), config)
+
+    assert finding.figures[0].page == 15
+
+
+def test_a_correct_page_is_left_alone(config, fake_pages):
+    """Resolution only intervenes where the quote disagrees with the page."""
+    figure = Figure(
+        value=108.6,
+        unit="billion",
+        page=13,
+        label="Operating Revenue",
+        quote="text of page 13",
+    )
+
+    finding = run_agent("revenue", "any.pdf", "t", _model(_report([figure])), config)
+
+    assert finding.figures[0].page == 13
+
+
+def test_a_paraphrased_quote_keeps_the_claimed_page(config, fake_pages):
+    """Nothing to match, so the figure is left as reported for the check to catch."""
+    figure = Figure(
+        value=23.5,
+        unit="billion",
+        page=13,
+        label="NIRC",
+        quote="NIRC is about 23 billion",
+    )
+
+    finding = run_agent("revenue", "any.pdf", "t", _model(_report([figure])), config)
+
+    assert finding.figures[0].page == 13
+
+
+def test_a_corrected_page_is_recorded_not_silently_replaced(config, fake_pages):
+    """The page the model claimed survives on the figure.
+
+    A trace that rewrites a citation without saying so is the thing the
+    supervisor's `chose`/`routed_to` split exists to avoid. The same applies
+    here: a reader should see that the page was resolved, not just its result.
+    """
+    figure = Figure(
+        value=23.5,
+        unit="billion",
+        page=13,
+        label="NIRC",
+        quote="text of page 15",
+    )
+
+    finding = run_agent("revenue", "any.pdf", "t", _model(_report([figure])), config)
+
+    assert finding.figures[0].page == 15
+    assert finding.figures[0].claimed_page == 13
+
+
+def test_an_uncorrected_page_records_no_claim(config, fake_pages):
+    """Nothing was overridden, so there is nothing to report."""
+    figure = Figure(
+        value=108.6,
+        unit="billion",
+        page=13,
+        label="Operating Revenue",
+        quote="text of page 13",
+    )
+
+    finding = run_agent("revenue", "any.pdf", "t", _model(_report([figure])), config)
+
+    assert finding.figures[0].claimed_page is None
