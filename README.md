@@ -311,7 +311,13 @@ Part 2 extends from part 1 by including MCP tools and LLM reasoning. In this par
 
 **Only step 3 crosses the MCP protocol,** and `normalize_date` is the only tool
 the server exposes. It runs over the server as a subprocess, with the
-in-process `@tool` as a fallback; `main` reports which route it used. 
+in-process `@tool` as a fallback; `main` reports which route it used.
+
+Built with **FastMCP**, where `@mcp.tool()` builds a tool's schema from its
+signature and docstring. Transport is **stdio**: `mcp_client` runs
+[`mcp_server`](src/tools/mcp_server.py) as a subprocess, sending requests to its
+stdin and reading replies from its stdout, which is why nothing in the server
+prints.
 
 
 The answer is written to `results/dates.json`:
@@ -617,26 +623,21 @@ from the format Groq's parser accepts, which leads to the request being rejected
 content is correct. Parts 1 and 2 emit short structured objects and never hit
 it, so they are left on the default rather than changed for symmetry.
 
-**Every exchange is a single turn** No prompt continues
-a conversation, so there is no `assistant` section; each call carries everything
-the model needs. Where a run makes several calls, as the Part 3 supervisor does,
-each is independent and state is threaded through the graph rather than through
-message history.
-
 **The model quotes accurately but may cite the wrong page.** It is assumed to be
-grounded in the text it was given, so the quotes it returns are verbatim. However, as LLM has a tendency hallucinate, 
+grounded in the text it was given, so the quotes it returns are verbatim. The
+page attached to them is less reliable as related figures appear on several
+pages, and the model can read one and record another.
 [`page_of_quote`](src/ingestion/parser.py) replaces the model's page with the
 one whose text contains the quote. Where no match is found, the model's page is
-kept and the traceability check reports it. 
+kept and the traceability check reports it.
 
 ## Limitations
 
 * Pages and target content must be defined up front to ensure that the LLM/agent is extracting the right data due to variations of data. This may not be feasible if future requests focus on specific topics without knowledge of pages 
 * Routing is inconsistent between runs. As the routing logic is highly dependent on the supervisor agent, the same query can take a different path each time. Temperature 0 removes sampling, not server-side variation
-* Every query is a single turn, and not scaled for multi-turn conversation as memory is not stored
 * For this task, the reasoning in synthesis is not verified, as the focus is the accuracy of the extraction and the generated output. The labels check catches a figure renamed on its way into the answer, but an inference drawn from correct figures can still be wrong and pass every check - human review is what closes that gap
 * Extraction and implementation is still very specific and dependent towards the source data
-* The model's raw output is corrected before it is recorded - `page_of_quote` resolves a figure's page from its quote, and the synthesis prompt supplies the labels to reuse. Both are deliberate, but they mean the trace shows the corrected result rather than what the model first produced. However, further checks have not been conducted
+* The model's raw output is corrected before it is recorded - `page_of_quote` resolves a figure's page from its quote, and the synthesis prompt supplies the labels to reuse. Both are deliberate, but they mean the trace shows the corrected result rather than what the model first produced. How far the two diverge would be worth studying, but it is not the focus of this task and was not pursued
 
 ## Future work
 
