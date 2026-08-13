@@ -72,6 +72,9 @@ flowchart LR
 ## Instructions to implement
 
 ```bash
+git clone https://github.com/thepetitegirl/structural-extanalyzer.git
+cd structural-extanalyzer
+
 uv sync
 cp .env.example .env          # add GROQ_API_KEY (free, no card)
 
